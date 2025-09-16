@@ -8,7 +8,7 @@ $session = SecureSession::getInstance();
 
 // Si ya está logueado, redirigir al dashboard
 if ($session->isLoggedIn()) {
-    redirectTo("/dashboard/{$session->getUserRole()}.php");
+    redirectTo("dashboard/{$session->getUserRole()}.php");
 }
 
 $errors = [];
@@ -137,7 +137,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             $success = 'Registro exitoso. Bienvenido al sistema.';
             flashMessage($success, 'success');
-            redirectTo('/dashboard/estudiante.php');
+            
+            // Redirigir al dashboard de estudiante
+            redirectTo('../dashboard/estudiante.php');
             
         } catch (Exception $e) {
             $db->rollback();
@@ -401,7 +403,7 @@ include '../includes/header.php';
                         <label for="email">Email <span class="required">*</span></label>
                         <input type="email" id="email" name="email" 
                                value="<?= htmlspecialchars($formData['email'] ?? '') ?>" 
-                               placeholder="21000000@aguascalientes.tecnm.mx" required>
+                               placeholder="juan.perez@ita.mx" required>
                         <?php if (isset($errors['email'])): ?>
                             <span class="error"><?= htmlspecialchars($errors['email']) ?></span>
                         <?php endif; ?>
@@ -448,7 +450,7 @@ include '../includes/header.php';
                         <label for="carrera">Carrera <span class="required">*</span></label>
                         <select id="carrera" name="carrera" required>
                             <option value="">Seleccionar carrera</option>
-                            <option value="Ingeniería en Tecnologías de la Información y Comunicaciones" <?= ($formData['carrera'] ?? '') === 'Ingeniería en Tecnologías de la Información y Comunicaciones' ? 'selected' : '' ?>>Ingeniería en Tecnologías de la Información y Comunicaciones</option>
+                            <option value="Ingeniería en Sistemas Computacionales" <?= ($formData['carrera'] ?? '') === 'Ingeniería en Sistemas Computacionales' ? 'selected' : '' ?>>Ingeniería en Sistemas Computacionales</option>
                             <option value="Ingeniería Industrial" <?= ($formData['carrera'] ?? '') === 'Ingeniería Industrial' ? 'selected' : '' ?>>Ingeniería Industrial</option>
                             <option value="Ingeniería Mecánica" <?= ($formData['carrera'] ?? '') === 'Ingeniería Mecánica' ? 'selected' : '' ?>>Ingeniería Mecánica</option>
                             <option value="Ingeniería Electrónica" <?= ($formData['carrera'] ?? '') === 'Ingeniería Electrónica' ? 'selected' : '' ?>>Ingeniería Electrónica</option>
