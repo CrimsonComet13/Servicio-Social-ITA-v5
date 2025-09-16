@@ -9,7 +9,7 @@ $session = SecureSession::getInstance();
 // Si ya está logueado, redirigir al dashboard correspondiente
 if ($session->isLoggedIn()) {
     $userRole = $session->getUserRole();
-    redirectTo("/dashboard/$userRole.php");
+    redirectTo("../dashboard/$userRole.php");
 }
 
 $error = '';

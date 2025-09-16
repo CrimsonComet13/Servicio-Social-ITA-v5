@@ -15,6 +15,6 @@ $session->destroy();
 
 // Redirigir al login con mensaje
 flashMessage('Sesión cerrada correctamente', 'success');
-header('Location: /auth/login.php');
+header('Location: ../auth/login.php');
 exit();
 ?>

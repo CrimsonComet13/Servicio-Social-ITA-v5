@@ -34,6 +34,6 @@ $role = $session->getUserRole();
             <li><a href="/servicio_social_ita/modules/departamento/reportes.php">Reportes</a></li>
         <?php endif; ?>
 
-        <li><a href="/servicio_social_ita/auth/logout.php">Cerrar sesión</a></li>
+        <li><a href="../auth/logout.php">Cerrar sesión</a></li>
     </ul>
 </nav>

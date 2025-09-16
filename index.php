@@ -7,7 +7,7 @@ $session = SecureSession::getInstance();
 // Redirigir usuarios logueados a su dashboard
 if ($session->isLoggedIn()) {
     $userRole = $session->getUserRole();
-    header("Location: /dashboard/$userRole.php");
+    header("Location: dashboard/$userRole.php");
     exit();
 }
 

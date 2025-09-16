@@ -4,7 +4,17 @@ require_once '../config/session.php';
 require_once '../config/functions.php';
 
 $session = SecureSession::getInstance();
-$session->requireRole('estudiante');
+
+// Verificar autenticación y rol de manera más robusta
+if (!$session->isLoggedIn()) {
+    header("Location: ../auth/login.php");
+    exit();
+}
+
+if ($session->getUserRole() !== 'estudiante') {
+    header("Location: ../dashboard/" . $session->getUserRole() . ".php");
+    exit();
+}
 
 $db = Database::getInstance();
 $usuario = $session->getUser();
@@ -72,6 +82,7 @@ $pageTitle = "Dashboard Estudiante - " . APP_NAME;
 include '../includes/header.php';
 include '../includes/sidebar.php';
 ?>
+
 
 <div class="dashboard-content">
     <div class="dashboard-header">

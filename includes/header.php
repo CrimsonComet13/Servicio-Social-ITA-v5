@@ -27,8 +27,8 @@ defined('APP_NAME') or die('Acceso restringido');
             
             <nav class="header-nav">
                 <ul>
-                    <li><a href="/dashboard/<?= $session->getUserRole() ?>.php">Dashboard</a></li>
-                    <li><a href="/auth/logout.php">Cerrar Sesión</a></li>
+                    <li><a href="../dashboard/<?= $session->getUserRole() ?>.php">Dashboard</a></li>
+                    <li><a href="../auth/logout.php">Cerrar Sesión</a></li>
                 </ul>
             </nav>
             

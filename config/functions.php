@@ -200,7 +200,7 @@ function setConfig($key, $value, $type = 'string', $description = '') {
 }
 
 function redirectTo($url) {
-    header("Location: $url");
+    header("Location: " .$url);
     exit();
 }
 
