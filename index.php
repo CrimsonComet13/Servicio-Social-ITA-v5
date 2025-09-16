@@ -19,8 +19,8 @@
             </div>
             
             <div class="nav-actions">
-                <a href="/auth/login.php" class="btn btn-ghost">Iniciar Sesión</a>
-                <a href="/auth/register.php" class="btn btn-primary">Registrarse</a>
+                <a href="auth/login.php" class="btn btn-ghost">Iniciar Sesión</a>
+                <a href="auth/register.php" class="btn btn-primary">Registrarse</a>
             </div>
         </div>
     </nav>
@@ -52,7 +52,7 @@
                         </p>
                         
                         <div class="hero-actions">
-                            <a href="/auth/register.php" class="btn btn-primary btn-large">
+                            <a href="auth/register.php" class="btn btn-primary btn-large">
                                 <i class="fas fa-rocket"></i>
                                 Comenzar Ahora
                             </a>
@@ -379,11 +379,11 @@
                     <h2>¿Listo para comenzar?</h2>
                     <p>Únete a miles de estudiantes que ya están gestionando su servicio social de manera eficiente</p>
                     <div class="cta-actions">
-                        <a href="/auth/register.php" class="btn btn-primary btn-large">
+                        <a href="auth/register.php" class="btn btn-primary btn-large">
                             <i class="fas fa-rocket"></i>
                             Registrarse Ahora
                         </a>
-                        <a href="/auth/login.php" class="btn btn-ghost btn-large">
+                        <a href="auth/login.php" class="btn btn-ghost btn-large">
                             <i class="fas fa-sign-in-alt"></i>
                             Ya tengo cuenta
                         </a>
@@ -411,8 +411,8 @@
                         <ul>
                             <li><a href="#features">Características</a></li>
                             <li><a href="#roles">Roles</a></li>
-                            <li><a href="/docs">Documentación</a></li>
-                            <li><a href="/support">Soporte</a></li>
+                            <li><a href="docs/manual.pdf">Documentación</a></li>
+                            <li><a href="contacto.php">Soporte</a></li>
                         </ul>
                     </div>
                     

@@ -11,7 +11,7 @@ define('DB_USER', 'root');
 define('DB_PASS', '');
 define('DB_CHARSET', 'utf8mb4');
 
-// Configuración de rutas
+// Configuración de rutas - Ajustado para servidor local
 define('BASE_PATH', __DIR__ . '/../');
 define('BASE_URL', 'http://localhost/servicio_social_ita/');
 define('UPLOAD_PATH', BASE_PATH . 'assets/uploads/');

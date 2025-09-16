@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -44,6 +44,9 @@
             color: #666;
             font-size: 14px;
         }
+        .centered {
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -63,10 +66,10 @@
                 <li><strong>Email:</strong> {{email}}</li>
                 <li><strong>Tipo de usuario:</strong> {{tipo_usuario}}</li>
             </ul>
-            
-            <p>Ahora puedes acceder al sistema y comenzar a utilizar todas las funcionalidades disponibles.</p>
-            
-            <div style="text-align: center;">
+            <div class="centered">
+                <a href="{{base_url}}auth/login.php" class="button">Iniciar Sesión</a>
+            </div>
+            <div class="centered">
                 <a href="{{base_url}}auth/login.php" class="button">Iniciar Sesión</a>
             </div>
             
