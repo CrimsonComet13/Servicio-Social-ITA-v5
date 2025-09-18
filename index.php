@@ -28,11 +28,11 @@ include 'includes/header.php';
             </div>
             
             <div class="nav-actions">
-                <a href="/auth/login.php" class="btn btn-ghost">
+                <a href="<?= BASE_URL ?>auth/login.php" class="btn btn-ghost">
                     <i class="fas fa-sign-in-alt"></i>
                     Iniciar Sesión
                 </a>
-                <a href="/auth/register.php" class="btn btn-primary">
+                <a href="<?= BASE_URL ?>auth/register.php" class="btn btn-primary">
                     <i class="fas fa-rocket"></i>
                     Registrarse
                 </a>
@@ -63,11 +63,11 @@ include 'includes/header.php';
                     </p>
                     
                     <div class="hero-actions">
-                        <a href="/auth/register.php" class="btn btn-primary btn-large">
+                        <a href="<?= BASE_URL ?>auth/register.php" class="btn btn-primary btn-large">
                             <i class="fas fa-rocket"></i>
                             Comenzar Ahora
                         </a>
-                        <a href="/auth/login.php" class="btn btn-secondary btn-large">
+                        <a href="<?= BASE_URL ?>auth/login.php" class="btn btn-secondary btn-large">
                             <i class="fas fa-sign-in-alt"></i>
                             Iniciar Sesión
                         </a>
@@ -575,11 +575,11 @@ include 'includes/header.php';
                 </div>
                 
                 <div class="cta-actions">
-                    <a href="/auth/register.php" class="btn btn-primary btn-large">
+                    <a href="<?= BASE_URL ?>auth/register.php" class="btn btn-primary btn-large">
                         <i class="fas fa-rocket"></i>
                         Registrarse Gratis
                     </a>
-                    <a href="/auth/login.php" class="btn btn-secondary btn-large">
+                    <a href="<?= BASE_URL ?>auth/login.php" class="btn btn-secondary btn-large">
                         <i class="fas fa-sign-in-alt"></i>
                         Ya tengo cuenta
                     </a>
@@ -604,7 +604,9 @@ include 'includes/header.php';
     </section>
 </div>
 
+<!-- Todo el CSS y JavaScript permanecen igual -->
 <style>
+/* Todo tu CSS actual permanece exactamente igual */
 :root {
     --primary: #6366f1;
     --primary-light: #8b8cf7;

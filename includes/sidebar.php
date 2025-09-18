@@ -2,173 +2,514 @@
 // Sidebar común para todos los dashboards
 $currentRole = $session->getUserRole();
 $currentPage = basename($_SERVER['PHP_SELF']);
+$currentPath = $_SERVER['REQUEST_URI'];
+
+// Definir menús por rol
+$menusByRole = [
+    'estudiante' => [
+        [
+            'label' => 'Dashboard',
+            'icon' => 'fas fa-home',
+            'url' => '../dashboard/estudiante.php',
+            'badge' => null
+        ],
+        [
+            'label' => 'Mi Solicitud',
+            'icon' => 'fas fa-file-alt',
+            'url' => '../modules/estudiantes/solicitud.php',
+            'badge' => null,
+            'submenu' => [
+                ['label' => 'Nueva Solicitud', 'url' => '../modules/estudiantes/solicitud.php'],
+                ['label' => 'Estado Actual', 'url' => '../modules/estudiantes/solicitud-estado.php']
+            ]
+        ],
+        [
+            'label' => 'Reportes',
+            'icon' => 'fas fa-chart-bar',
+            'url' => '../modules/estudiantes/reportes.php',
+            'badge' => '2'
+        ],
+        [
+            'label' => 'Documentos',
+            'icon' => 'fas fa-file-download',
+            'url' => '../modules/estudiantes/documentos.php',
+            'badge' => null
+        ],
+        [
+            'label' => 'Mi Perfil',
+            'icon' => 'fas fa-user-cog',
+            'url' => '../modules/estudiantes/perfil.php',
+            'badge' => null
+        ]
+    ],
+    'jefe_laboratorio' => [
+        [
+            'label' => 'Dashboard',
+            'icon' => 'fas fa-home',
+            'url' => '../dashboard/jefe_laboratorio.php',
+            'badge' => null
+        ],
+        [
+            'label' => 'Estudiantes',
+            'icon' => 'fas fa-users',
+            'url' => '../modules/laboratorio/estudiantes.php',
+            'badge' => '24',
+            'submenu' => [
+                ['label' => 'Asignados', 'url' => '../modules/laboratorio/estudiantes-asignados.php'],
+                ['label' => 'Solicitudes', 'url' => '../modules/laboratorio/estudiantes-solicitudes.php'],
+                ['label' => 'Historial', 'url' => '../modules/laboratorio/estudiantes-historial.php']
+            ]
+        ],
+        [
+            'label' => 'Evaluaciones',
+            'icon' => 'fas fa-star',
+            'url' => '../modules/laboratorio/evaluaciones.php',
+            'badge' => '8'
+        ],
+        [
+            'label' => 'Proyectos',
+            'icon' => 'fas fa-project-diagram',
+            'url' => '../modules/laboratorio/proyectos.php',
+            'badge' => null
+        ],
+        [
+            'label' => 'Reportes',
+            'icon' => 'fas fa-chart-line',
+            'url' => '../modules/laboratorio/reportes.php',
+            'badge' => null
+        ]
+    ],
+    'jefe_departamento' => [
+        [
+            'label' => 'Dashboard',
+            'icon' => 'fas fa-home',
+            'url' => '../dashboard/jefe_departamento.php',
+            'badge' => null
+        ],
+        [
+            'label' => 'Solicitudes',
+            'icon' => 'fas fa-clipboard-list',
+            'url' => '../modules/departamento/solicitudes.php',
+            'badge' => '12',
+            'submenu' => [
+                ['label' => 'Pendientes', 'url' => '../modules/departamento/solicitudes-pendientes.php'],
+                ['label' => 'Aprobadas', 'url' => '../modules/departamento/solicitudes-aprobadas.php'],
+                ['label' => 'Rechazadas', 'url' => '../modules/departamento/solicitudes-rechazadas.php']
+            ]
+        ],
+        [
+            'label' => 'Estudiantes',
+            'icon' => 'fas fa-user-graduate',
+            'url' => '../modules/departamento/estudiantes.php',
+            'badge' => null
+        ],
+        [
+            'label' => 'Laboratorios',
+            'icon' => 'fas fa-flask',
+            'url' => '../modules/departamento/laboratorios.php',
+            'badge' => null,
+            'submenu' => [
+                ['label' => 'Gestionar', 'url' => '../modules/departamento/laboratorios.php'],
+                ['label' => 'Jefes', 'url' => '../modules/departamento/jefes-laboratorio.php'],
+                ['label' => 'Proyectos', 'url' => '../modules/departamento/proyectos.php']
+            ]
+        ],
+        [
+            'label' => 'Reportes',
+            'icon' => 'fas fa-chart-pie',
+            'url' => '../modules/departamento/reportes.php',
+            'badge' => null
+        ],
+        [
+            'label' => 'Configuración',
+            'icon' => 'fas fa-cog',
+            'url' => '../modules/departamento/configuracion.php',
+            'badge' => null
+        ]
+    ]
+];
+
+$currentMenu = $menusByRole[$currentRole] ?? [];
+
+// Función para verificar si un enlace está activo
+function isLinkActive($url, $currentPath) {
+    $linkPath = basename($url);
+    $currentFile = basename($currentPath);
+    return $linkPath === $currentFile;
+}
+
+// Función para verificar si un menú tiene submenú activo
+function hasActiveSubmenu($submenu, $currentPath) {
+    if (!$submenu) return false;
+    foreach ($submenu as $item) {
+        if (isLinkActive($item['url'], $currentPath)) {
+            return true;
+        }
+    }
+    return false;
+}
 ?>
 
-<aside class="sidebar">
+<aside class="app-sidebar" id="appSidebar">
+    <!-- Sidebar Header -->
     <div class="sidebar-header">
-        <div class="user-info">
+        <div class="sidebar-user">
             <div class="user-avatar">
-                <i class="fas fa-user"></i>
+                <?php if (isset($usuario['avatar']) && $usuario['avatar']): ?>
+                    <img src="<?= (defined('UPLOAD_URL') ? UPLOAD_URL : '../uploads/') . $usuario['avatar'] ?>" alt="Avatar">
+                <?php else: ?>
+                    <i class="fas fa-user"></i>
+                <?php endif; ?>
+                <div class="status-indicator online"></div>
             </div>
-            <div class="user-details">
-                <h3><?= htmlspecialchars($usuario['nombre'] ?? $usuario['email']) ?></h3>
+            <div class="user-info">
+                <h3 class="user-name"><?= htmlspecialchars($usuario['nombre'] ?? $usuario['email']) ?></h3>
                 <span class="user-role"><?= ucfirst(str_replace('_', ' ', $currentRole)) ?></span>
             </div>
         </div>
+        
+        <?php if ($currentRole === 'estudiante' && isset($estudiante)): ?>
+        <div class="progress-widget">
+            <div class="progress-header">
+                <span class="progress-label">Progreso del Servicio</span>
+                <span class="progress-percentage"><?= min(100, round(($estudiante['horas_completadas'] ?? 0) / 500 * 100)) ?>%</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: <?= min(100, ($estudiante['horas_completadas'] ?? 0) / 500 * 100) ?>%"></div>
+            </div>
+            <div class="progress-info">
+                <span><?= $estudiante['horas_completadas'] ?? 0 ?> / 500 horas</span>
+            </div>
+        </div>
+        <?php endif; ?>
     </div>
 
+    <!-- Sidebar Navigation -->
     <nav class="sidebar-nav">
-        <ul class="nav-menu">
-            <!-- Dashboard -->
-            <li class="nav-item">
-                <a href="/dashboard/<?= $currentRole ?>.php" class="nav-link <?= $currentPage === "$currentRole.php" ? 'active' : '' ?>">
-                    <i class="fas fa-home"></i>
-                    <span>Dashboard</span>
-                </a>
-            </li>
-
-            <!-- Menú para Estudiantes -->
-            <?php if ($currentRole === 'estudiante'): ?>
-            <li class="nav-item">
-                <a href="/modules/estudiantes/solicitud.php" class="nav-link <?= strpos($currentPage, 'solicitud') !== false ? 'active' : '' ?>">
-                    <i class="fas fa-file-alt"></i>
-                    <span>Solicitudes</span>
-                </a>
-            </li>
-            <li class="nav-item">
-                <a href="/modules/estudiantes/reportes.php" class="nav-link <?= strpos($currentPage, 'reportes') !== false ? 'active' : '' ?>">
-                    <i class="fas fa-chart-bar"></i>
-                    <span>Reportes</span>
-                </a>
-            </li>
-            <li class="nav-item">
-                <a href="/modules/estudiantes/documentos.php" class="nav-link <?= strpos($currentPage, 'documentos') !== false ? 'active' : '' ?>">
-                    <i class="fas fa-file-download"></i>
-                    <span>Documentos</span>
-                </a>
-            </li>
-            <?php endif; ?>
-
-            <!-- Menú para Jefes de Laboratorio -->
-            <?php if ($currentRole === 'jefe_laboratorio'): ?>
-            <li class="nav-item">
-                <a href="/modules/laboratorio/estudiantes.php" class="nav-link <?= strpos($currentPage, 'estudiantes') !== false ? 'active' : '' ?>">
-                    <i class="fas fa-users"></i>
-                    <span>Estudiantes</span>
-                </a>
-            </li>
-            <li class="nav-item">
-                <a href="/modules/laboratorio/evaluaciones.php" class="nav-link <?= strpos($currentPage, 'evaluaciones') !== false ? 'active' : '' ?>">
-                    <i class="fas fa-check-circle"></i>
-                    <span>Evaluaciones</span>
-                </a>
-            </li>
-            <li class="nav-item">
-                <a href="/modules/laboratorio/reportes.php" class="nav-link <?= strpos($currentPage, 'reportes') !== false ? 'active' : '' ?>">
-                    <i class="fas fa-chart-line"></i>
-                    <span>Reportes</span>
-                </a>
-            </li>
-            <?php endif; ?>
-
-            <!-- Menú para Jefes de Departamento -->
-            <?php if ($currentRole === 'jefe_departamento'): ?>
-            <li class="nav-item">
-                <a href="/modules/departamento/solicitudes.php" class="nav-link <?= strpos($currentPage, 'solicitudes') !== false ? 'active' : '' ?>">
-                    <i class="fas fa-clipboard-list"></i>
-                    <span>Solicitudes</span>
-                </a>
-            </li>
-            <li class="nav-item">
-                <a href="/modules/departamento/estudiantes.php" class="nav-link <?= strpos($currentPage, 'estudiantes') !== false ? 'active' : '' ?>">
-                    <i class="fas fa-user-graduate"></i>
-                    <span>Estudiantes</span>
-                </a>
-            </li>
-            <li class="nav-item">
-                <a href="/modules/departamento/laboratorios.php" class="nav-link <?= strpos($currentPage, 'laboratorios') !== false ? 'active' : '' ?>">
-                    <i class="fas fa-flask"></i>
-                    <span>Laboratorios</span>
-                </a>
-            </li>
-            <li class="nav-item">
-                <a href="/modules/departamento/reportes.php" class="nav-link <?= strpos($currentPage, 'reportes') !== false ? 'active' : '' ?>">
-                    <i class="fas fa-chart-pie"></i>
-                    <span>Reportes</span>
-                </a>
-            </li>
-            <li class="nav-item">
-                <a href="/modules/departamento/configuracion.php" class="nav-link <?= strpos($currentPage, 'configuracion') !== false ? 'active' : '' ?>">
-                    <i class="fas fa-cog"></i>
-                    <span>Configuración</span>
-                </a>
-            </li>
-            <?php endif; ?>
-
-            <!-- Enlaces comunes -->
-            <li class="nav-item">
-                <a href="/modules/<?= $currentRole ?>/perfil.php" class="nav-link <?= strpos($currentPage, 'perfil') !== false ? 'active' : '' ?>">
-                    <i class="fas fa-user"></i>
-                    <span>Mi Perfil</span>
-                </a>
-            </li>
-            <li class="nav-item">
-                <a href="/auth/logout.php" class="nav-link">
-                    <i class="fas fa-sign-out-alt"></i>
-                    <span>Cerrar Sesión</span>
-                </a>
-            </li>
-        </ul>
+        <div class="nav-section">
+            <ul class="nav-menu" role="menubar">
+                <?php foreach ($currentMenu as $index => $item): 
+                    $isActive = isLinkActive($item['url'], $currentPath);
+                    $hasActiveSubmenuItem = hasActiveSubmenu($item['submenu'] ?? null, $currentPath);
+                    $isExpanded = $isActive || $hasActiveSubmenuItem;
+                ?>
+                <li class="nav-item <?= $isActive ? 'active' : '' ?> <?= $hasActiveSubmenuItem ? 'has-active-child' : '' ?>" role="menuitem">
+                    <a href="<?= $item['url'] ?>" 
+                       class="nav-link <?= $isActive ? 'active' : '' ?> <?= isset($item['submenu']) ? 'has-submenu' : '' ?>"
+                       <?= isset($item['submenu']) ? 'data-submenu-toggle' : '' ?>
+                       role="button"
+                       aria-expanded="<?= $isExpanded ? 'true' : 'false' ?>">
+                        <div class="nav-link-content">
+                            <div class="nav-icon">
+                                <i class="<?= $item['icon'] ?>"></i>
+                            </div>
+                            <span class="nav-text"><?= $item['label'] ?></span>
+                        </div>
+                        
+                        <?php if ($item['badge']): ?>
+                        <span class="nav-badge"><?= $item['badge'] ?></span>
+                        <?php endif; ?>
+                        
+                        <?php if (isset($item['submenu'])): ?>
+                        <i class="fas fa-chevron-down nav-arrow <?= $isExpanded ? 'expanded' : '' ?>"></i>
+                        <?php endif; ?>
+                    </a>
+                    
+                    <?php if (isset($item['submenu'])): ?>
+                    <ul class="nav-submenu <?= $isExpanded ? 'expanded' : '' ?>" role="menu">
+                        <?php foreach ($item['submenu'] as $subitem): 
+                            $isSubActive = isLinkActive($subitem['url'], $currentPath);
+                        ?>
+                        <li class="nav-subitem <?= $isSubActive ? 'active' : '' ?>" role="menuitem">
+                            <a href="<?= $subitem['url'] ?>" class="nav-sublink <?= $isSubActive ? 'active' : '' ?>">
+                                <span class="nav-subtext"><?= $subitem['label'] ?></span>
+                            </a>
+                        </li>
+                        <?php endforeach; ?>
+                    </ul>
+                    <?php endif; ?>
+                </li>
+                <?php endforeach; ?>
+            </ul>
+        </div>
+        
+        <!-- Quick Stats Section -->
+        <div class="nav-section">
+            <div class="section-title">Estadísticas Rápidas</div>
+            <div class="quick-stats">
+                <?php if ($currentRole === 'estudiante'): ?>
+                <div class="stat-item">
+                    <div class="stat-icon primary">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <div class="stat-content">
+                        <span class="stat-value"><?= $estudiante['horas_completadas'] ?? 0 ?></span>
+                        <span class="stat-label">Horas</span>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-icon success">
+                        <i class="fas fa-file-alt"></i>
+                    </div>
+                    <div class="stat-content">
+                        <span class="stat-value">4</span>
+                        <span class="stat-label">Reportes</span>
+                    </div>
+                </div>
+                <?php elseif ($currentRole === 'jefe_laboratorio'): ?>
+                <div class="stat-item">
+                    <div class="stat-icon info">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <div class="stat-content">
+                        <span class="stat-value">24</span>
+                        <span class="stat-label">Estudiantes</span>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-icon warning">
+                        <i class="fas fa-star"></i>
+                    </div>
+                    <div class="stat-content">
+                        <span class="stat-value">8</span>
+                        <span class="stat-label">Pendientes</span>
+                    </div>
+                </div>
+                <?php elseif ($currentRole === 'jefe_departamento'): ?>
+                <div class="stat-item">
+                    <div class="stat-icon primary">
+                        <i class="fas fa-clipboard-check"></i>
+                    </div>
+                    <div class="stat-content">
+                        <span class="stat-value">47</span>
+                        <span class="stat-label">Solicitudes</span>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-icon success">
+                        <i class="fas fa-percentage"></i>
+                    </div>
+                    <div class="stat-content">
+                        <span class="stat-value">94%</span>
+                        <span class="stat-label">Efectividad</span>
+                    </div>
+                </div>
+                <?php endif; ?>
+            </div>
+        </div>
     </nav>
+    
+    <!-- Sidebar Footer -->
+    <div class="sidebar-footer">
+        <div class="footer-actions">
+            <a href="../modules/<?= $currentRole ?>/ayuda.php" class="footer-action" title="Ayuda">
+                <i class="fas fa-question-circle"></i>
+            </a>
+            <a href="../modules/<?= $currentRole ?>/configuracion.php" class="footer-action" title="Configuración">
+                <i class="fas fa-cog"></i>
+            </a>
+            <a href="../auth/logout.php" class="footer-action logout" title="Cerrar Sesión">
+                <i class="fas fa-sign-out-alt"></i>
+            </a>
+        </div>
+        
+        <div class="footer-info">
+            <div class="app-version">
+                <span>ITA Social v<?= defined('APP_VERSION') ? APP_VERSION : '1.0.0' ?></span>
+            </div>
+        </div>
+    </div>
 </aside>
 
 <style>
-.sidebar {
-    width: 250px;
-    background: var(--secondary-color);
-    color: white;
-    height: 100vh;
+/* Sidebar Styles */
+.app-sidebar {
     position: fixed;
     left: 0;
-    top: 0;
+    top: var(--header-height);
+    width: var(--sidebar-width);
+    height: calc(100vh - var(--header-height));
+    background: var(--bg-white);
+    border-right: 1px solid var(--border);
     overflow-y: auto;
+    overflow-x: hidden;
+    z-index: 900;
+    transition: var(--transition);
+    display: flex;
+    flex-direction: column;
 }
 
+.app-sidebar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.app-sidebar::-webkit-scrollbar-track {
+    background: var(--bg-light);
+}
+
+.app-sidebar::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+}
+
+.app-sidebar::-webkit-scrollbar-thumb:hover {
+    background: var(--text-light);
+}
+
+/* Sidebar Header */
 .sidebar-header {
-    padding: 1.5rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 2rem;
+    border-bottom: 1px solid var(--border-light);
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(139, 140, 247, 0.05) 100%);
 }
 
-.user-info {
+.sidebar-user {
     display: flex;
     align-items: center;
     gap: 1rem;
+    margin-bottom: 1.5rem;
 }
 
-.user-avatar {
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
-    background: var(--primary-color);
+.sidebar-user .user-avatar {
+    position: relative;
+    width: 60px;
+    height: 60px;
+    border-radius: var(--radius-lg);
+    background: linear-gradient(135deg, var(--primary), var(--primary-light));
     display: flex;
     align-items: center;
     justify-content: center;
+    color: white;
     font-size: 1.5rem;
+    overflow: hidden;
+    box-shadow: var(--shadow);
 }
 
-.user-details h3 {
-    margin: 0;
-    font-size: 1rem;
+.sidebar-user .user-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.status-indicator {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 3px solid var(--bg-white);
+}
+
+.status-indicator.online {
+    background: var(--success);
+}
+
+.status-indicator.away {
+    background: var(--warning);
+}
+
+.status-indicator.offline {
+    background: var(--text-light);
+}
+
+.sidebar-user .user-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.sidebar-user .user-name {
+    font-size: 1.125rem;
     font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 0.25rem 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.user-role {
-    font-size: 0.8rem;
-    opacity: 0.8;
+.sidebar-user .user-role {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+    background: rgba(99, 102, 241, 0.1);
+    color: var(--primary);
+    padding: 0.25rem 0.75rem;
+    border-radius: 1rem;
+    display: inline-block;
 }
 
+/* Progress Widget */
+.progress-widget {
+    background: var(--bg-white);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius);
+    padding: 1rem;
+    margin-top: 1rem;
+}
+
+.progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.progress-label {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.progress-percentage {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--primary);
+}
+
+.progress-widget .progress-bar {
+    height: 6px;
+    background: var(--bg-light);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 0.5rem;
+}
+
+.progress-widget .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary), var(--primary-light));
+    border-radius: 3px;
+    transition: var(--transition);
+}
+
+.progress-info {
+    font-size: 0.75rem;
+    color: var(--text-light);
+    text-align: center;
+}
+
+/* Navigation */
 .sidebar-nav {
+    flex: 1;
     padding: 1rem 0;
+}
+
+.nav-section {
+    margin-bottom: 2rem;
+}
+
+.nav-section:last-child {
+    margin-bottom: 0;
+}
+
+.section-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-light);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 0 2rem;
+    margin-bottom: 1rem;
 }
 
 .nav-menu {
@@ -179,42 +520,465 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 
 .nav-item {
     margin: 0;
+    position: relative;
 }
 
 .nav-link {
     display: flex;
     align-items: center;
-    padding: 1rem 1.5rem;
-    color: rgba(255, 255, 255, 0.8);
+    justify-content: space-between;
+    padding: 0.875rem 2rem;
+    color: var(--text-primary);
     text-decoration: none;
-    transition: all 0.3s;
-    gap: 0.75rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: var(--transition);
+    position: relative;
+    border: none;
+    background: none;
+    width: 100%;
+    cursor: pointer;
+}
+
+.nav-link::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--primary);
+    transform: scaleY(0);
+    transition: var(--transition);
 }
 
 .nav-link:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: white;
+    background: var(--bg-light);
+    color: var(--primary);
 }
 
 .nav-link.active {
-    background: var(--primary-color);
+    background: rgba(99, 102, 241, 0.1);
+    color: var(--primary);
+}
+
+.nav-link.active::before {
+    transform: scaleY(1);
+}
+
+.nav-link-content {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex: 1;
+}
+
+.nav-icon {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+}
+
+.nav-text {
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.nav-badge {
+    background: var(--error);
+    color: white;
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    min-width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+.nav-arrow {
+    font-size: 0.75rem;
+    color: var(--text-light);
+    transition: var(--transition);
+    margin-left: 0.5rem;
+}
+
+.nav-arrow.expanded {
+    transform: rotate(180deg);
+}
+
+/* Submenu */
+.nav-submenu {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    background: var(--bg-light);
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.nav-submenu.expanded {
+    max-height: 300px;
+}
+
+.nav-subitem {
+    margin: 0;
+}
+
+.nav-sublink {
+    display: flex;
+    align-items: center;
+    padding: 0.625rem 2rem 0.625rem 4rem;
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: var(--transition);
+    position: relative;
+}
+
+.nav-sublink::before {
+    content: '';
+    position: absolute;
+    left: 3rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 4px;
+    background: var(--text-light);
+    border-radius: 50%;
+    transition: var(--transition);
+}
+
+.nav-sublink:hover {
+    background: var(--bg-white);
+    color: var(--primary);
+}
+
+.nav-sublink.active {
+    background: var(--bg-white);
+    color: var(--primary);
+}
+
+.nav-sublink.active::before {
+    background: var(--primary);
+    transform: translateY(-50%) scale(1.5);
+}
+
+/* Quick Stats */
+.quick-stats {
+    padding: 0 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.stat-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: var(--bg-light);
+    border-radius: var(--radius);
+    transition: var(--transition);
+}
+
+.stat-item:hover {
+    background: var(--bg-white);
+    box-shadow: var(--shadow-sm);
+}
+
+.stat-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
     color: white;
 }
 
-.nav-link i {
-    width: 20px;
+.stat-icon.primary {
+    background: linear-gradient(135deg, var(--primary), var(--primary-light));
+}
+
+.stat-icon.success {
+    background: linear-gradient(135deg, var(--success), #34d399);
+}
+
+.stat-icon.warning {
+    background: linear-gradient(135deg, var(--warning), #fbbf24);
+}
+
+.stat-icon.info {
+    background: linear-gradient(135deg, var(--info), #60a5fa);
+}
+
+.stat-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.stat-value {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1;
+}
+
+.stat-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: 0.125rem;
+}
+
+/* Sidebar Footer */
+.sidebar-footer {
+    padding: 1.5rem 2rem;
+    border-top: 1px solid var(--border-light);
+    background: var(--bg-light);
+}
+
+.footer-actions {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.footer-action {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: var(--transition);
+    background: var(--bg-white);
+    border: 1px solid var(--border);
+}
+
+.footer-action:hover {
+    color: var(--primary);
+    border-color: var(--primary);
+    transform: translateY(-1px);
+}
+
+.footer-action.logout {
+    color: var(--error);
+}
+
+.footer-action.logout:hover {
+    color: var(--error);
+    border-color: var(--error);
+    background: rgba(239, 68, 68, 0.05);
+}
+
+.footer-info {
     text-align: center;
 }
 
-@media (max-width: 768px) {
-    .sidebar {
+.app-version {
+    font-size: 0.75rem;
+    color: var(--text-light);
+}
+
+/* Mobile Styles */
+@media (max-width: 1024px) {
+    .app-sidebar {
         transform: translateX(-100%);
-        transition: transform 0.3s;
-        z-index: 1000;
+        z-index: 1001;
     }
     
-    .sidebar.open {
+    .app-sidebar.mobile-open {
         transform: translateX(0);
+        box-shadow: var(--shadow-lg);
+    }
+    
+    body.mobile-menu-open {
+        overflow: hidden;
     }
 }
+
+@media (max-width: 768px) {
+    .sidebar-header {
+        padding: 1.5rem;
+    }
+    
+    .sidebar-user {
+        margin-bottom: 1rem;
+    }
+    
+    .sidebar-user .user-avatar {
+        width: 50px;
+        height: 50px;
+        font-size: 1.25rem;
+    }
+    
+    .quick-stats {
+        padding: 0 1.5rem;
+    }
+    
+    .sidebar-footer {
+        padding: 1rem 1.5rem;
+    }
+}
+
+/* Animation for submenu expansion */
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.nav-submenu.expanded .nav-subitem {
+    animation: slideDown 0.3s ease-out forwards;
+}
+
+.nav-submenu.expanded .nav-subitem:nth-child(2) {
+    animation-delay: 0.05s;
+}
+
+.nav-submenu.expanded .nav-subitem:nth-child(3) {
+    animation-delay: 0.1s;
+}
+
+.nav-submenu.expanded .nav-subitem:nth-child(4) {
+    animation-delay: 0.15s;
+}
 </style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle submenu toggles
+    const submenuToggles = document.querySelectorAll('[data-submenu-toggle]');
+    
+    submenuToggles.forEach(toggle => {
+        toggle.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            const submenu = this.nextElementSibling;
+            const arrow = this.querySelector('.nav-arrow');
+            const isExpanded = submenu.classList.contains('expanded');
+            
+            // Close other submenus
+            document.querySelectorAll('.nav-submenu.expanded').forEach(menu => {
+                if (menu !== submenu) {
+                    menu.classList.remove('expanded');
+                    menu.previousElementSibling.querySelector('.nav-arrow')?.classList.remove('expanded');
+                    menu.previousElementSibling.setAttribute('aria-expanded', 'false');
+                }
+            });
+            
+            // Toggle current submenu
+            if (!isExpanded) {
+                submenu.classList.add('expanded');
+                arrow?.classList.add('expanded');
+                this.setAttribute('aria-expanded', 'true');
+            } else {
+                submenu.classList.remove('expanded');
+                arrow?.classList.remove('expanded');
+                this.setAttribute('aria-expanded', 'false');
+            }
+        });
+    });
+    
+    // Handle active states
+    const navLinks = document.querySelectorAll('.nav-link, .nav-sublink');
+    
+    navLinks.forEach(link => {
+        if (link.classList.contains('active')) {
+            // Expand parent submenu if sublink is active
+            if (link.classList.contains('nav-sublink')) {
+                const parentSubmenu = link.closest('.nav-submenu');
+                const parentToggle = parentSubmenu?.previousElementSibling;
+                
+                if (parentSubmenu && parentToggle) {
+                    parentSubmenu.classList.add('expanded');
+                    parentToggle.querySelector('.nav-arrow')?.classList.add('expanded');
+                    parentToggle.setAttribute('aria-expanded', 'true');
+                    parentToggle.parentElement.classList.add('has-active-child');
+                }
+            }
+        }
+    });
+    
+    // Handle stat item clicks
+    const statItems = document.querySelectorAll('.stat-item');
+    
+    statItems.forEach(item => {
+        item.addEventListener('click', function() {
+            // Add click effect
+            this.style.transform = 'scale(0.98)';
+            setTimeout(() => {
+                this.style.transform = '';
+            }, 150);
+        });
+    });
+    
+    // Handle sidebar collapse on mobile
+    const sidebarLinks = document.querySelectorAll('.nav-link:not([data-submenu-toggle]), .nav-sublink');
+    
+    sidebarLinks.forEach(link => {
+        link.addEventListener('click', function() {
+            if (window.innerWidth <= 1024) {
+                const sidebar = document.getElementById('appSidebar');
+                const overlay = document.getElementById('mobileOverlay');
+                const menuToggle = document.getElementById('mobileMenuToggle');
+                
+                if (sidebar) {
+                    sidebar.classList.remove('mobile-open');
+                    overlay?.classList.remove('active');
+                    menuToggle?.classList.remove('active');
+                    document.body.classList.remove('mobile-menu-open');
+                }
+            }
+        });
+    });
+    
+    // Smooth scrolling for sidebar navigation
+    function smoothScrollToSection(targetId) {
+        const target = document.getElementById(targetId);
+        if (target) {
+            target.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+            });
+        }
+    }
+    
+    // Add keyboard navigation
+    document.addEventListener('keydown', function(e) {
+        // ESC key to close mobile menu
+        if (e.key === 'Escape' && window.innerWidth <= 1024) {
+            const sidebar = document.getElementById('appSidebar');
+            const overlay = document.getElementById('mobileOverlay');
+            const menuToggle = document.getElementById('mobileMenuToggle');
+            
+            if (sidebar?.classList.contains('mobile-open')) {
+                sidebar.classList.remove('mobile-open');
+                overlay?.classList.remove('active');
+                menuToggle?.classList.remove('active');
+                document.body.classList.remove('mobile-menu-open');
+            }
+        }
+    });
+});
+</script>
