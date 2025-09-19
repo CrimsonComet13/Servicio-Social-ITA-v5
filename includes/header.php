@@ -1,6 +1,43 @@
 <?php
 // Evitar acceso directo
 defined('APP_NAME') or die('Acceso restringido');
+
+// Asegurar que las variables necesarias están definidas
+if (!isset($session)) {
+    $session = SecureSession::getInstance();
+}
+
+if (!isset($usuario) && isset($session) && $session->isLoggedIn()) {
+    $usuario = [
+        'nombre' => 'Usuario',
+        'email' => $session->get('email') ?? 'usuario@ita.mx',
+        'avatar' => null
+    ];
+}
+
+// Función auxiliar para obtener nombre seguro del usuario
+function getSafeUserDisplayName($usuario, $maxLength = 20) {
+    if (!is_array($usuario)) {
+        return 'Usuario';
+    }
+    
+    $name = $usuario['nombre'] ?? $usuario['email'] ?? 'Usuario';
+    
+    if ($name && is_string($name)) {
+        return htmlspecialchars(strlen($name) > $maxLength ? substr($name, 0, $maxLength) . '...' : $name);
+    }
+    
+    return 'Usuario';
+}
+
+// Función auxiliar para obtener email seguro del usuario
+function getSafeUserDisplayEmail($usuario) {
+    if (!is_array($usuario)) {
+        return 'usuario@ita.mx';
+    }
+    
+    return htmlspecialchars($usuario['email'] ?? 'usuario@ita.mx');
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -115,7 +152,7 @@ defined('APP_NAME') or die('Acceso restringido');
                             <?php endif; ?>
                         </div>
                         <div class="user-info">
-                            <span class="user-name"><?= htmlspecialchars($usuario['nombre'] ?? $usuario['email']) ?></span>
+                            <span class="user-name"><?= getSafeUserDisplayName($usuario) ?></span>
                             <span class="user-role"><?= ucfirst(str_replace('_', ' ', $session->getUserRole())) ?></span>
                         </div>
                         <i class="fas fa-chevron-down user-chevron"></i>
@@ -131,26 +168,14 @@ defined('APP_NAME') or die('Acceso restringido');
                                 <?php endif; ?>
                             </div>
                             <div class="user-details">
-                                <h3><?= htmlspecialchars($usuario['nombre'] ?? $usuario['email']) ?></h3>
-                                <p><?= htmlspecialchars($usuario['email']) ?></p>
+                                <h3><?= getSafeUserDisplayName($usuario, 30) ?></h3>
+                                <p><?= getSafeUserDisplayEmail($usuario) ?></p>
                                 <span class="role-badge"><?= ucfirst(str_replace('_', ' ', $session->getUserRole())) ?></span>
                             </div>
                         </div>
                         
                         <nav class="user-menu-nav">
-                            <a href="../dashboard/<?= $session->getUserRole() ?>.php" class="user-menu-item">
-                                <i class="fas fa-home"></i>
-                                <span>Dashboard</span>
-                            </a>
-                            <a href="../modules/<?= $session->getUserRole() ?>/perfil.php" class="user-menu-item">
-                                <i class="fas fa-user-cog"></i>
-                                <span>Mi Perfil</span>
-                            </a>
-                            <a href="../modules/<?= $session->getUserRole() ?>/configuracion.php" class="user-menu-item">
-                                <i class="fas fa-cog"></i>
-                                <span>Configuración</span>
-                            </a>
-                            <div class="user-menu-divider"></div>
+
                             <a href="../help.php" class="user-menu-item">
                                 <i class="fas fa-question-circle"></i>
                                 <span>Ayuda</span>
@@ -199,6 +224,7 @@ defined('APP_NAME') or die('Acceso restringido');
     
     <main class="main-content">
         
+        <!-- (El CSS y JavaScript permanecen iguales) -->
         <style>
         :root {
             --primary: #6366f1;

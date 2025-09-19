@@ -1,3 +1,47 @@
+<?php
+// Evitar acceso directo
+if (!defined('APP_NAME')) {
+    die('Acceso restringido');
+}
+
+// Asegurar que las variables necesarias están definidas
+if (!isset($session)) {
+    $session = SecureSession::getInstance();
+}
+
+if (!isset($usuario) && $session->isLoggedIn()) {
+    $usuario = [
+        'nombre' => 'Usuario',
+        'email' => $session->get('email') ?? 'usuario@ita.mx',
+        'avatar' => null
+    ];
+}
+
+// Función auxiliar para obtener nombre seguro del usuario
+function getSafeUserName($usuario, $maxLength = 20) {
+    if (!is_array($usuario)) {
+        return 'Usuario';
+    }
+    
+    $name = $usuario['nombre'] ?? $usuario['email'] ?? 'Usuario';
+    
+    if ($name && is_string($name)) {
+        return htmlspecialchars(substr($name, 0, $maxLength));
+    }
+    
+    return 'Usuario';
+}
+
+// Función auxiliar para obtener email seguro del usuario
+function getSafeUserEmail($usuario) {
+    if (!is_array($usuario)) {
+        return 'usuario@ita.mx';
+    }
+    
+    return htmlspecialchars($usuario['email'] ?? 'usuario@ita.mx');
+}
+?>
+
 </main>
     
     <?php if (isset($session) && $session->isLoggedIn()): ?>
@@ -42,7 +86,7 @@
                     <div class="footer-info">
                         <div class="info-item">
                             <i class="fas fa-user"></i>
-                            <span><?= htmlspecialchars(substr($usuario['nombre'] ?? $usuario['email'], 0, 20)) ?></span>
+                            <span><?= getSafeUserName($usuario) ?></span>
                         </div>
                         <div class="info-item">
                             <i class="fas fa-shield-alt"></i>
@@ -193,6 +237,7 @@
     <script src="../assets/js/charts.js"></script>
     <?php endif; ?>
     
+    <!-- (El CSS y JavaScript permanecen iguales) -->
     <style>
     /* Footer Styles - Versión Compacta */
     .app-footer {
