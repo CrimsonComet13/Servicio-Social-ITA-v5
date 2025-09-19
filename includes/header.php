@@ -155,10 +155,11 @@ defined('APP_NAME') or die('Acceso restringido');
                                 <i class="fas fa-question-circle"></i>
                                 <span>Ayuda</span>
                             </a>
-                            <a href="../auth/logout.php" class="user-menu-item logout">
+                            <!-- LOGOUT MEJORADO CON AJAX -->
+                            <button type="button" onclick="performSecureLogout()" class="user-menu-item logout" id="logoutButton">
                                 <i class="fas fa-sign-out-alt"></i>
                                 <span>Cerrar Sesión</span>
-                            </a>
+                            </button>
                         </nav>
                     </div>
                 </div>
@@ -168,6 +169,32 @@ defined('APP_NAME') or die('Acceso restringido');
     
     <!-- Overlay for mobile -->
     <div class="mobile-overlay" id="mobileOverlay"></div>
+    
+    <!-- Modal de Confirmación de Logout -->
+    <div class="logout-modal" id="logoutModal">
+        <div class="logout-modal-content">
+            <div class="logout-modal-header">
+                <div class="logout-icon">
+                    <i class="fas fa-sign-out-alt"></i>
+                </div>
+                <h3>¿Cerrar Sesión?</h3>
+                <p>¿Estás seguro de que deseas cerrar tu sesión?</p>
+            </div>
+            <div class="logout-modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeLogoutModal()">
+                    <i class="fas fa-times"></i>
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-danger" onclick="confirmLogout()" id="confirmLogoutBtn">
+                    <i class="fas fa-sign-out-alt"></i>
+                    Cerrar Sesión
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Overlay del Modal -->
+    <div class="logout-modal-overlay" id="logoutModalOverlay"></div>
     <?php endif; ?>
     
     <main class="main-content">
@@ -723,6 +750,11 @@ defined('APP_NAME') or die('Acceso restringido');
             font-size: 0.9rem;
             font-weight: 500;
             transition: var(--transition);
+            background: none;
+            border: none;
+            width: 100%;
+            text-align: left;
+            cursor: pointer;
         }
 
         .user-menu-item:hover {
@@ -765,6 +797,172 @@ defined('APP_NAME') or die('Acceso restringido');
         .mobile-overlay.active {
             opacity: 1;
             visibility: visible;
+        }
+
+        /* LOGOUT MODAL STYLES */
+        .logout-modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.9);
+            background: var(--bg-white);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+            z-index: 1100;
+            opacity: 0;
+            visibility: hidden;
+            transition: var(--transition);
+            min-width: 400px;
+            max-width: 90vw;
+        }
+
+        .logout-modal.active {
+            opacity: 1;
+            visibility: visible;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        .logout-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1099;
+            opacity: 0;
+            visibility: hidden;
+            transition: var(--transition);
+        }
+
+        .logout-modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .logout-modal-content {
+            padding: 2rem;
+        }
+
+        .logout-modal-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .logout-icon {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, var(--error), #f87171);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            margin: 0 auto 1.5rem auto;
+            animation: pulse 2s infinite;
+        }
+
+        .logout-modal-header h3 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .logout-modal-header p {
+            color: var(--text-secondary);
+            font-size: 1rem;
+        }
+
+        .logout-modal-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius);
+            font-weight: 500;
+            font-size: 0.95rem;
+            transition: var(--transition);
+            border: none;
+            cursor: pointer;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        .btn-secondary {
+            background: var(--bg-light);
+            color: var(--text-primary);
+            border: 2px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-white);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, var(--error), #f87171);
+            color: white;
+            box-shadow: var(--shadow);
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .btn-danger:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Loading state */
+        .loading {
+            position: relative;
+            pointer-events: none;
+        }
+
+        .loading::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+            border: 2px solid transparent;
+            border-top: 2px solid currentColor;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            z-index: 1;
+        }
+
+        .loading span {
+            opacity: 0;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.05);
+            }
+        }
+
+        @keyframes spin {
+            from { transform: translate(-50%, -50%) rotate(0deg); }
+            to { transform: translate(-50%, -50%) rotate(360deg); }
         }
 
         /* Main Content */
@@ -811,6 +1009,11 @@ defined('APP_NAME') or die('Acceso restringido');
                 width: 300px;
                 max-width: calc(100vw - 2rem);
             }
+
+            .logout-modal {
+                min-width: 300px;
+                margin: 1rem;
+            }
         }
 
         @media (max-width: 480px) {
@@ -836,6 +1039,14 @@ defined('APP_NAME') or die('Acceso restringido');
             .notification-menu,
             .user-menu {
                 width: 280px;
+            }
+
+            .logout-modal-content {
+                padding: 1.5rem;
+            }
+
+            .logout-modal-actions {
+                flex-direction: column;
             }
         }
 
@@ -956,4 +1167,315 @@ defined('APP_NAME') or die('Acceso restringido');
                 });
             }
         });
+
+        // FUNCIONES DE LOGOUT MEJORADAS
+
+        /**
+         * Función principal para iniciar el logout
+         */
+        function performSecureLogout() {
+            console.log('Iniciando logout seguro...');
+            
+            // Cerrar menú de usuario
+            document.querySelector('.user-dropdown')?.classList.remove('active');
+            
+            // Mostrar modal de confirmación
+            showLogoutModal();
+        }
+
+        /**
+         * Mostrar modal de confirmación
+         */
+        function showLogoutModal() {
+            const modal = document.getElementById('logoutModal');
+            const overlay = document.getElementById('logoutModalOverlay');
+            
+            if (modal && overlay) {
+                modal.classList.add('active');
+                overlay.classList.add('active');
+                document.body.style.overflow = 'hidden';
+                
+                // Focus en el botón de cancelar para accesibilidad
+                setTimeout(() => {
+                    const cancelBtn = modal.querySelector('.btn-secondary');
+                    cancelBtn?.focus();
+                }, 100);
+            }
+        }
+
+        /**
+         * Cerrar modal de confirmación
+         */
+        function closeLogoutModal() {
+            const modal = document.getElementById('logoutModal');
+            const overlay = document.getElementById('logoutModalOverlay');
+            
+            if (modal && overlay) {
+                modal.classList.remove('active');
+                overlay.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+        }
+
+        /**
+         * Confirmar y ejecutar logout
+         */
+        async function confirmLogout() {
+            const confirmBtn = document.getElementById('confirmLogoutBtn');
+            
+            try {
+                // Mostrar estado de carga
+                if (confirmBtn) {
+                    confirmBtn.classList.add('loading');
+                    confirmBtn.disabled = true;
+                }
+
+                console.log('Ejecutando logout...');
+
+                // Preparar datos para la petición
+                const formData = new FormData();
+                formData.append('action', 'confirm_logout');
+
+                // Realizar petición AJAX
+                const response = await fetch('../auth/logout.php', {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: formData,
+                    credentials: 'same-origin',
+                    cache: 'no-cache'
+                });
+
+                console.log('Response status:', response.status);
+                
+                // Verificar el Content-Type
+                const contentType = response.headers.get('content-type');
+                console.log('Content-Type:', contentType);
+
+                if (!contentType || !contentType.includes('application/json')) {
+                    // Si no es JSON, obtener el texto para debugging
+                    const textResponse = await response.text();
+                    console.error('Respuesta no es JSON:', textResponse.substring(0, 500));
+                    
+                    // Intentar logout forzado
+                    throw new Error('El servidor no respondió con JSON válido. Intentando logout forzado...');
+                }
+
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('Logout response:', data);
+
+                    if (data.success) {
+                        // Logout exitoso
+                        await handleLogoutSuccess(data);
+                    } else {
+                        throw new Error(data.message || 'Error en el logout');
+                    }
+                } else {
+                    throw new Error(`Error del servidor: ${response.status}`);
+                }
+
+            } catch (error) {
+                console.error('Error en logout:', error);
+                await handleLogoutError(error);
+            }
+        }
+
+        /**
+         * Manejar logout exitoso
+         */
+        async function handleLogoutSuccess(data) {
+            console.log('Logout exitoso:', data.message);
+            
+            // Cerrar modal
+            closeLogoutModal();
+            
+            // Limpiar datos locales
+            await clearLocalData();
+            
+            // Mostrar mensaje temporal
+            showLogoutSuccessMessage(data.message);
+            
+            // Redirigir después de un momento
+            setTimeout(() => {
+                window.location.href = data.redirect || '../auth/login.php';
+            }, 1500);
+        }
+
+        /**
+         * Manejar errores de logout
+         */
+        async function handleLogoutError(error) {
+            console.error('Error manejando logout:', error);
+            
+            // Resetear botón
+            const confirmBtn = document.getElementById('confirmLogoutBtn');
+            if (confirmBtn) {
+                confirmBtn.classList.remove('loading');
+                confirmBtn.disabled = false;
+            }
+            
+            // Mostrar error en el modal
+            showLogoutError(error.message);
+            
+            // Ofrecer logout forzado después de 3 segundos
+            setTimeout(() => {
+                addForceLogoutOption();
+            }, 3000);
+        }
+
+        /**
+         * Mostrar mensaje de éxito
+         */
+        function showLogoutSuccessMessage(message) {
+            const modal = document.getElementById('logoutModal');
+            if (modal) {
+                modal.innerHTML = `
+                    <div class="logout-modal-content">
+                        <div class="logout-modal-header">
+                            <div class="logout-icon" style="background: linear-gradient(135deg, var(--success), #34d399);">
+                                <i class="fas fa-check"></i>
+                            </div>
+                            <h3>¡Sesión Cerrada!</h3>
+                            <p>${message || 'Tu sesión se ha cerrado correctamente'}</p>
+                        </div>
+                        <div class="logout-modal-actions">
+                            <div style="display: flex; align-items: center; gap: 1rem; color: var(--text-secondary);">
+                                <div class="loading" style="width: 20px; height: 20px;"></div>
+                                <span>Redirigiendo...</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        /**
+         * Mostrar error en el modal
+         */
+        function showLogoutError(message) {
+            const modal = document.getElementById('logoutModal');
+            if (modal) {
+                const content = modal.querySelector('.logout-modal-header p');
+                if (content) {
+                    content.innerHTML = `
+                        <div style="color: var(--error); font-size: 0.9rem; margin-top: 1rem;">
+                            <strong>Error:</strong> ${message}
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        /**
+         * Agregar opción de logout forzado
+         */
+        function addForceLogoutOption() {
+            const actions = document.querySelector('.logout-modal-actions');
+            if (actions && !actions.querySelector('.btn-warning')) {
+                const forceBtn = document.createElement('button');
+                forceBtn.className = 'btn btn-warning';
+                forceBtn.innerHTML = '<i class="fas fa-power-off"></i> Forzar Cierre';
+                forceBtn.onclick = forceLogout;
+                
+                actions.appendChild(forceBtn);
+            }
+        }
+
+        /**
+         * Logout forzado
+         */
+        async function forceLogout() {
+            console.log('Ejecutando logout forzado...');
+            
+            // Cerrar modal
+            closeLogoutModal();
+            
+            // Limpiar datos locales
+            await clearLocalData();
+            
+            // Mostrar mensaje
+            showLogoutSuccessMessage('Cerrando sesión de forma forzada...');
+            
+            // Intentar múltiples endpoints
+            const cleanupPromises = [
+                fetch('../auth/logout.php?action=force', { method: 'GET' }).catch(() => {}),
+                fetch('../auth/logout.php?action=immediate', { method: 'GET' }).catch(() => {})
+            ];
+            
+            // Esperar máximo 2 segundos
+            Promise.race([
+                Promise.allSettled(cleanupPromises),
+                new Promise(resolve => setTimeout(resolve, 2000))
+            ]).finally(() => {
+                // Redirigir independientemente del resultado
+                window.location.href = '../auth/login.php?forced=1';
+            });
+        }
+
+        /**
+         * Limpiar datos locales del navegador
+         */
+        async function clearLocalData() {
+            try {
+                console.log('Limpiando datos locales...');
+                
+                // Limpiar localStorage
+                const keysToRemove = [
+                    'user_preferences',
+                    'dashboard_cache',
+                    'form_drafts',
+                    'auth_token',
+                    'user_session',
+                    'ita_social_session'
+                ];
+                
+                keysToRemove.forEach(key => {
+                    try {
+                        localStorage.removeItem(key);
+                    } catch (e) {
+                        console.warn(`Error removiendo ${key}:`, e);
+                    }
+                });
+                
+                // Limpiar sessionStorage
+                try {
+                    sessionStorage.clear();
+                } catch (e) {
+                    console.warn('Error limpiando sessionStorage:', e);
+                }
+                
+                console.log('Datos locales limpiados correctamente');
+                
+            } catch (error) {
+                console.error('Error general limpiando datos locales:', error);
+            }
+        }
+
+        // Event Listeners para el modal
+        document.addEventListener('DOMContentLoaded', function() {
+            // Cerrar modal con Escape
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    closeLogoutModal();
+                }
+            });
+            
+            // Cerrar modal clickeando el overlay
+            const overlay = document.getElementById('logoutModalOverlay');
+            if (overlay) {
+                overlay.addEventListener('click', closeLogoutModal);
+            }
+        });
+
+        // Exponer funciones globalmente para debugging
+        window.logoutSystem = {
+            performSecureLogout,
+            showLogoutModal,
+            closeLogoutModal,
+            confirmLogout,
+            forceLogout,
+            clearLocalData
+        };
         </script>

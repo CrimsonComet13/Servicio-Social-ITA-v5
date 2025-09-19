@@ -10,35 +10,35 @@ $menusByRole = [
         [
             'label' => 'Dashboard',
             'icon' => 'fas fa-home',
-            'url' => '../dashboard/estudiante.php',
+            'url' => BASE_URL . 'dashboard/estudiante.php',
             'badge' => null
         ],
         [
             'label' => 'Mi Solicitud',
             'icon' => 'fas fa-file-alt',
-            'url' => '../modules/estudiantes/solicitud.php',
+            'url' => BASE_URL . 'modules/estudiantes/solicitud.php',
             'badge' => null,
             'submenu' => [
-                ['label' => 'Nueva Solicitud', 'url' => '../modules/estudiantes/solicitud.php'],
-                ['label' => 'Estado Actual', 'url' => '../modules/estudiantes/solicitud-estado.php']
+                ['label' => 'Nueva Solicitud', 'url' => BASE_URL . 'modules/estudiantes/solicitud.php'],
+                ['label' => 'Estado Actual', 'url' => BASE_URL . 'modules/estudiantes/solicitud-estado.php']
             ]
         ],
         [
             'label' => 'Reportes',
             'icon' => 'fas fa-chart-bar',
-            'url' => '../modules/estudiantes/reportes.php',
+            'url' => BASE_URL . 'modules/estudiantes/reportes.php',
             'badge' => '2'
         ],
         [
             'label' => 'Documentos',
             'icon' => 'fas fa-file-download',
-            'url' => '../modules/estudiantes/documentos.php',
+            'url' => BASE_URL . 'modules/estudiantes/documentos.php',
             'badge' => null
         ],
         [
             'label' => 'Mi Perfil',
             'icon' => 'fas fa-user-cog',
-            'url' => '../modules/estudiantes/perfil.php',
+            'url' => BASE_URL . 'modules/estudiantes/perfil.php',
             'badge' => null
         ]
     ],
@@ -46,36 +46,36 @@ $menusByRole = [
         [
             'label' => 'Dashboard',
             'icon' => 'fas fa-home',
-            'url' => '../dashboard/jefe_laboratorio.php',
+            'url' => BASE_URL . 'dashboard/jefe-laboratorio.php',
             'badge' => null
         ],
         [
             'label' => 'Estudiantes',
             'icon' => 'fas fa-users',
-            'url' => '../modules/laboratorio/estudiantes.php',
+            'url' => BASE_URL . 'modules/laboratorio/estudiantes.php',
             'badge' => '24',
             'submenu' => [
-                ['label' => 'Asignados', 'url' => '../modules/laboratorio/estudiantes-asignados.php'],
-                ['label' => 'Solicitudes', 'url' => '../modules/laboratorio/estudiantes-solicitudes.php'],
-                ['label' => 'Historial', 'url' => '../modules/laboratorio/estudiantes-historial.php']
+                ['label' => 'Asignados', 'url' => BASE_URL . 'modules/laboratorio/estudiantes-asignados.php'],
+                ['label' => 'Solicitudes', 'url' => BASE_URL . 'modules/laboratorio/estudiantes-solicitudes.php'],
+                ['label' => 'Historial', 'url' => BASE_URL . 'modules/laboratorio/estudiantes-historial.php']
             ]
         ],
         [
             'label' => 'Evaluaciones',
             'icon' => 'fas fa-star',
-            'url' => '../modules/laboratorio/evaluaciones.php',
+            'url' => BASE_URL . 'modules/laboratorio/evaluaciones.php',
             'badge' => '8'
         ],
         [
             'label' => 'Proyectos',
             'icon' => 'fas fa-project-diagram',
-            'url' => '../modules/laboratorio/proyectos.php',
+            'url' => BASE_URL . 'modules/laboratorio/proyectos.php',
             'badge' => null
         ],
         [
             'label' => 'Reportes',
             'icon' => 'fas fa-chart-line',
-            'url' => '../modules/laboratorio/reportes.php',
+            'url' => BASE_URL . 'modules/laboratorio/reportes.php',
             'badge' => null
         ]
     ],
@@ -83,47 +83,47 @@ $menusByRole = [
         [
             'label' => 'Dashboard',
             'icon' => 'fas fa-home',
-            'url' => '../dashboard/jefe_departamento.php',
+            'url' => BASE_URL . 'dashboard/jefe-departamento.php',
             'badge' => null
         ],
         [
             'label' => 'Solicitudes',
             'icon' => 'fas fa-clipboard-list',
-            'url' => '../modules/departamento/solicitudes.php',
+            'url' => BASE_URL . 'modules/departamento/solicitudes.php',
             'badge' => '12',
             'submenu' => [
-                ['label' => 'Pendientes', 'url' => '../modules/departamento/solicitudes-pendientes.php'],
-                ['label' => 'Aprobadas', 'url' => '../modules/departamento/solicitudes-aprobadas.php'],
-                ['label' => 'Rechazadas', 'url' => '../modules/departamento/solicitudes-rechazadas.php']
+                ['label' => 'Pendientes', 'url' => BASE_URL . 'modules/departamento/solicitudes-pendientes.php'],
+                ['label' => 'Aprobadas', 'url' => BASE_URL . 'modules/departamento/solicitudes-aprobadas.php'],
+                ['label' => 'Rechazadas', 'url' => BASE_URL . 'modules/departamento/solicitudes-rechazadas.php']
             ]
         ],
         [
             'label' => 'Estudiantes',
             'icon' => 'fas fa-user-graduate',
-            'url' => '../modules/departamento/estudiantes.php',
+            'url' => BASE_URL . 'modules/departamento/estudiantes.php',
             'badge' => null
         ],
         [
             'label' => 'Laboratorios',
             'icon' => 'fas fa-flask',
-            'url' => '../modules/departamento/laboratorios.php',
+            'url' => BASE_URL . 'modules/departamento/laboratorios.php',
             'badge' => null,
             'submenu' => [
-                ['label' => 'Gestionar', 'url' => '../modules/departamento/laboratorios.php'],
-                ['label' => 'Jefes', 'url' => '../modules/departamento/jefes-laboratorio.php'],
-                ['label' => 'Proyectos', 'url' => '../modules/departamento/proyectos.php']
+                ['label' => 'Gestionar', 'url' => BASE_URL . 'modules/departamento/laboratorios.php'],
+                ['label' => 'Jefes', 'url' => BASE_URL . 'modules/departamento/jefes-laboratorio.php'],
+                ['label' => 'Proyectos', 'url' => BASE_URL . 'modules/departamento/proyectos.php']
             ]
         ],
         [
             'label' => 'Reportes',
             'icon' => 'fas fa-chart-pie',
-            'url' => '../modules/departamento/reportes.php',
+            'url' => BASE_URL . 'modules/departamento/reportes.php',
             'badge' => null
         ],
         [
             'label' => 'Configuración',
             'icon' => 'fas fa-cog',
-            'url' => '../modules/departamento/configuracion.php',
+            'url' => BASE_URL . 'modules/departamento/configuracion.php',
             'badge' => null
         ]
     ]
@@ -133,9 +133,9 @@ $currentMenu = $menusByRole[$currentRole] ?? [];
 
 // Función para verificar si un enlace está activo
 function isLinkActive($url, $currentPath) {
-    $linkPath = basename($url);
-    $currentFile = basename($currentPath);
-    return $linkPath === $currentFile;
+    $parsedUrl = parse_url($url);
+    $linkPath = $parsedUrl['path'] ?? '';
+    return strpos($currentPath, $linkPath) !== false;
 }
 
 // Función para verificar si un menú tiene submenú activo
@@ -156,7 +156,7 @@ function hasActiveSubmenu($submenu, $currentPath) {
         <div class="sidebar-user">
             <div class="user-avatar">
                 <?php if (isset($usuario['avatar']) && $usuario['avatar']): ?>
-                    <img src="<?= (defined('UPLOAD_URL') ? UPLOAD_URL : '../uploads/') . $usuario['avatar'] ?>" alt="Avatar">
+                    <img src="<?= UPLOAD_URL . $usuario['avatar'] ?>" alt="Avatar">
                 <?php else: ?>
                     <i class="fas fa-user"></i>
                 <?php endif; ?>
@@ -302,13 +302,13 @@ function hasActiveSubmenu($submenu, $currentPath) {
     <!-- Sidebar Footer -->
     <div class="sidebar-footer">
         <div class="footer-actions">
-            <a href="../modules/<?= $currentRole ?>/ayuda.php" class="footer-action" title="Ayuda">
+            <a href="<?= BASE_URL ?>modules/<?= $currentRole ?>/ayuda.php" class="footer-action" title="Ayuda">
                 <i class="fas fa-question-circle"></i>
             </a>
-            <a href="../modules/<?= $currentRole ?>/configuracion.php" class="footer-action" title="Configuración">
+            <a href="<?= BASE_URL ?>modules/<?= $currentRole ?>/configuracion.php" class="footer-action" title="Configuración">
                 <i class="fas fa-cog"></i>
             </a>
-            <a href="../auth/logout.php" class="footer-action logout" title="Cerrar Sesión">
+            <a href="<?= BASE_URL ?>auth/logout.php" class="footer-action logout" title="Cerrar Sesión">
                 <i class="fas fa-sign-out-alt"></i>
             </a>
         </div>
@@ -320,6 +320,8 @@ function hasActiveSubmenu($submenu, $currentPath) {
         </div>
     </div>
 </aside>
+
+<!-- El resto del código CSS y JavaScript permanece igual -->
 
 <style>
 /* Sidebar Styles */
