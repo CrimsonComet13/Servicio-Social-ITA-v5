@@ -9,7 +9,9 @@ $session = SecureSession::getInstance();
 // Si ya está logueado, redirigir al dashboard correspondiente
 if ($session->isLoggedIn()) {
     $userRole = $session->getUserRole();
-    redirectTo("../dashboard/$userRole.php");
+    // Usar ruta relativa consistente
+    header("Location: ../dashboard/$userRole.php");
+    exit();
 }
 
 $error = '';
@@ -33,46 +35,80 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $db = Database::getInstance();
             
-            // Buscar usuario
-            $user = $db->fetch("SELECT * FROM usuarios WHERE email = ? AND activo = TRUE", [$email]);
-            
-            if ($user && verifyPassword($password, $user['password'])) {
-                // Login exitoso
-                recordLoginAttempt($email, true);
+            // Buscar usuario con manejo de errores
+            try {
+                $user = $db->fetch("SELECT * FROM usuarios WHERE email = ? AND activo = TRUE", [$email]);
                 
-                // Actualizar último acceso
-                $db->update('usuarios', 
-                           ['ultimo_acceso' => date('Y-m-d H:i:s')], 
-                           'id = :id', 
-                           ['id' => $user['id']]);
-                
-                // Obtener datos específicos según el tipo de usuario
-                $userData = [];
-                switch ($user['tipo_usuario']) {
-                    case 'estudiante':
-                        $userData = getEstudianteData($user['id']);
-                        break;
-                    case 'jefe_departamento':
-                        $userData = getJefeDepartamentoData($user['id']);
-                        break;
-                    case 'jefe_laboratorio':
-                        $userData = getJefeLaboratorioData($user['id']);
-                        break;
+                if ($user && verifyPassword($password, $user['password'])) {
+                    // Login exitoso
+                    recordLoginAttempt($email, true);
+                    
+                    // Actualizar último acceso
+                    $db->update('usuarios', 
+                               ['ultimo_acceso' => date('Y-m-d H:i:s')], 
+                               'id = :id', 
+                               ['id' => $user['id']]);
+                    
+                    // Obtener datos específicos según el tipo de usuario
+                    $userData = [];
+                    try {
+                        switch ($user['tipo_usuario']) {
+                            case 'estudiante':
+                                $userData = getEstudianteData($user['id']);
+                                break;
+                            case 'jefe_departamento':
+                                $userData = getJefeDepartamentoData($user['id']);
+                                break;
+                            case 'jefe_laboratorio':
+                                $userData = getJefeLaboratorioData($user['id']);
+                                break;
+                            default:
+                                // Tipo de usuario no reconocido
+                                $error = 'Tipo de usuario no válido';
+                                recordLoginAttempt($email, false);
+                                break;
+                        }
+                        
+                        if (empty($error)) {
+                            // Configurar sesión con datos completos
+                            $userComplete = array_merge($user, $userData);
+                            $session->set('usuario', $userComplete);
+                            
+                            // Verificar que la sesión se guardó correctamente
+                            if ($session->isLoggedIn() && $session->getUserRole() === $user['tipo_usuario']) {
+                                // Registrar actividad
+                                logActivity($user['id'], 'login', 'auth');
+                                
+                                // Limpiar cualquier output buffer antes de redireccionar
+                                if (ob_get_level()) {
+                                    ob_end_clean();
+                                }
+                                
+                                // Redirigir usando ruta relativa consistente
+                                header("Location: ../dashboard/{$user['tipo_usuario']}.php");
+                                exit();
+                            } else {
+                                $error = 'Error al inicializar la sesión. Inténtalo nuevamente.';
+                                // Limpiar sesión fallida
+                                $session->destroy();
+                            }
+                        }
+                        
+                    } catch (Exception $e) {
+                        error_log("Error obteniendo datos del usuario: " . $e->getMessage());
+                        $error = 'Error interno. Inténtalo más tarde.';
+                        recordLoginAttempt($email, false);
+                    }
+                    
+                } else {
+                    // Login fallido
+                    recordLoginAttempt($email, false);
+                    $error = 'Credenciales incorrectas';
                 }
                 
-                // Configurar sesión
-                $session->set('usuario', array_merge($user, $userData));
-                
-                // Registrar actividad
-                logActivity($user['id'], 'login', 'auth');
-                
-                // Redirigir al dashboard correspondiente
-                redirectTo("/dashboard/{$user['tipo_usuario']}.php");
-                
-            } else {
-                // Login fallido
-                recordLoginAttempt($email, false);
-                $error = 'Credenciales incorrectas';
+            } catch (Exception $e) {
+                error_log("Error en consulta de login: " . $e->getMessage());
+                $error = 'Error de conexión. Inténtalo más tarde.';
             }
         }
     }
@@ -85,14 +121,6 @@ include '../includes/header.php';
 
 <!-- Background Pattern -->
 <div class="background-pattern"></div>
-
-<!-- Navigation Back -->
-<nav class="nav-back">
-    <a href="../index.php" class="back-link">
-        <i class="fas fa-arrow-left"></i>
-        <span>Volver al inicio</span>
-    </a>
-</nav>
 
 <div class="login-container">
     <div class="login-wrapper">
@@ -226,7 +254,7 @@ include '../includes/header.php';
                     <i class="fas fa-question-circle"></i>
                     <h4>¿Necesitas ayuda?</h4>
                     <p>Consulta nuestras guías</p>
-                    <a href="/help">Ver guías</a>
+                    <a href="../help">Ver guías</a>
                 </div>
                 <div class="quick-card">
                     <i class="fas fa-phone"></i>
@@ -259,6 +287,7 @@ include '../includes/header.php';
     --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
     --radius: 12px;
     --radius-lg: 16px;
+    --header-height: 80px;
 }
 
 * {
@@ -275,11 +304,12 @@ body {
     min-height: 100vh;
     position: relative;
     overflow-x: hidden;
+    padding-top: var(--header-height);
 }
 
 /* Background Pattern */
 .background-pattern {
-    position: absolute;
+    position: fixed;
     top: 0;
     left: 0;
     right: 0;
@@ -289,43 +319,18 @@ body {
         radial-gradient(circle at 80% 20%, rgba(139, 140, 247, 0.1) 0%, transparent 50%),
         radial-gradient(circle at 40% 80%, rgba(79, 70, 229, 0.1) 0%, transparent 50%);
     pointer-events: none;
-}
-
-/* Navigation */
-.nav-back {
-    position: absolute;
-    top: 2rem;
-    left: 2rem;
-    z-index: 10;
-}
-
-.back-link {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    color: white;
-    text-decoration: none;
-    font-weight: 500;
-    padding: 0.75rem 1rem;
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
-    border-radius: var(--radius);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    transition: all 0.2s ease;
-}
-
-.back-link:hover {
-    background: rgba(255, 255, 255, 0.2);
-    transform: translateX(-2px);
+    z-index: 1;
 }
 
 /* Main Container */
 .login-container {
-    min-height: 100vh;
+    min-height: calc(100vh - var(--header-height));
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 2rem;
+    position: relative;
+    z-index: 2;
 }
 
 .login-wrapper {
@@ -750,9 +755,8 @@ body {
 
 /* Responsive Design */
 @media (max-width: 768px) {
-    .nav-back {
-        top: 1rem;
-        left: 1rem;
+    body {
+        padding-top: var(--header-height);
     }
 
     .login-container {
@@ -818,6 +822,13 @@ document.addEventListener('DOMContentLoaded', function() {
             loginBtn.disabled = true;
             if (btnText) btnText.style.display = 'none';
             if (btnLoader) btnLoader.style.display = 'inline-flex';
+            
+            // Re-enable after 10 seconds in case of error
+            setTimeout(() => {
+                loginBtn.disabled = false;
+                if (btnText) btnText.style.display = 'inline';
+                if (btnLoader) btnLoader.style.display = 'none';
+            }, 10000);
         });
     }
 

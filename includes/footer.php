@@ -5,20 +5,20 @@
     <footer class="app-footer">
         <div class="footer-container">
             <div class="footer-content">
-                <div class="footer-section">
+                <div class="footer-section brand-section">
                     <div class="footer-brand">
                         <div class="brand-logo">
                             <img src="../assets/images/logo-ita.png" alt="Logo ITA">
                         </div>
                         <div class="brand-info">
-                            <h4>Instituto Tecnológico de Aguascalientes</h4>
-                            <p>Sistema de Gestión de Servicio Social</p>
+                            <h4>ITA Social</h4>
+                            <p>Sistema de Servicio Social</p>
                         </div>
                     </div>
                 </div>
                 
                 <div class="footer-section">
-                    <h5>Enlaces Rápidos</h5>
+                    <h5>Enlaces</h5>
                     <nav class="footer-nav">
                         <a href="../dashboard/<?= $session->getUserRole() ?>.php">Dashboard</a>
                         <a href="../modules/<?= $session->getUserRole() ?>/perfil.php">Mi Perfil</a>
@@ -30,31 +30,27 @@
                 <div class="footer-section">
                     <h5>Soporte</h5>
                     <nav class="footer-nav">
-                        <a href="../docs/manual-usuario.pdf" target="_blank">Manual de Usuario</a>
-                        <a href="../help/faq.php">Preguntas Frecuentes</a>
-                        <a href="mailto:soporte@ita.mx">Soporte Técnico</a>
+                        <a href="../docs/manual-usuario.pdf" target="_blank">Manual</a>
+                        <a href="../help/faq.php">FAQ</a>
+                        <a href="mailto:soporte@ita.mx">Soporte</a>
                         <a href="../help/tutoriales.php">Tutoriales</a>
                     </nav>
                 </div>
                 
-                <div class="footer-section">
-                    <h5>Información</h5>
+                <div class="footer-section user-section">
+                    <h5>Sesión</h5>
                     <div class="footer-info">
                         <div class="info-item">
                             <i class="fas fa-user"></i>
-                            <span><?= htmlspecialchars($usuario['nombre'] ?? $usuario['email']) ?></span>
-                        </div>
-                        <div class="info-item">
-                            <i class="fas fa-clock"></i>
-                            <span>Última sesión: <?= formatDate($usuario['ultimo_acceso'] ?? date('Y-m-d H:i:s')) ?></span>
+                            <span><?= htmlspecialchars(substr($usuario['nombre'] ?? $usuario['email'], 0, 20)) ?></span>
                         </div>
                         <div class="info-item">
                             <i class="fas fa-shield-alt"></i>
-                            <span>Conexión segura SSL</span>
+                            <span>Conexión segura</span>
                         </div>
                         <div class="info-item">
                             <i class="fas fa-code-branch"></i>
-                            <span>Versión <?= APP_VERSION ?? '1.0.0' ?></span>
+                            <span>v<?= APP_VERSION ?? '1.0' ?></span>
                         </div>
                     </div>
                 </div>
@@ -63,11 +59,10 @@
             <div class="footer-bottom">
                 <div class="footer-bottom-content">
                     <div class="copyright">
-                        <p>&copy; <?= date('Y') ?> Instituto Tecnológico de Aguascalientes. Todos los derechos reservados.</p>
+                        <p>&copy; <?= date('Y') ?> ITA. Todos los derechos reservados.</p>
                         <div class="legal-links">
-                            <a href="../legal/privacidad.php">Política de Privacidad</a>
-                            <a href="../legal/terminos.php">Términos de Uso</a>
-                            <a href="../legal/cookies.php">Política de Cookies</a>
+                            <a href="../legal/privacidad.php">Privacidad</a>
+                            <a href="../legal/terminos.php">Términos</a>
                         </div>
                     </div>
                     
@@ -75,12 +70,6 @@
                         <button class="theme-toggle" id="themeToggle" aria-label="Cambiar tema">
                             <i class="fas fa-moon"></i>
                         </button>
-                        <div class="language-selector">
-                            <button class="language-btn" aria-label="Cambiar idioma">
-                                <i class="fas fa-globe"></i>
-                                <span>ES</span>
-                            </button>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -91,7 +80,7 @@
     <footer class="landing-footer">
         <div class="footer-container">
             <div class="footer-content">
-                <div class="footer-section">
+                <div class="footer-section brand-section">
                     <div class="footer-brand">
                         <div class="brand-logo">
                             <img src="assets/images/logo-ita.png" alt="Logo ITA">
@@ -99,7 +88,6 @@
                         <div class="brand-info">
                             <h4>ITA Social</h4>
                             <p>Sistema de Gestión de Servicio Social</p>
-                            <p>Instituto Tecnológico de Aguascalientes</p>
                         </div>
                     </div>
                     <div class="social-links">
@@ -119,7 +107,7 @@
                 </div>
                 
                 <div class="footer-section">
-                    <h5>Para Estudiantes</h5>
+                    <h5>Estudiantes</h5>
                     <nav class="footer-nav">
                         <a href="auth/register.php">Registrarse</a>
                         <a href="auth/login.php">Iniciar Sesión</a>
@@ -129,9 +117,9 @@
                 </div>
                 
                 <div class="footer-section">
-                    <h5>Para Instituciones</h5>
+                    <h5>Instituciones</h5>
                     <nav class="footer-nav">
-                        <a href="auth/register-jefe.php">Registro Jefe Lab.</a>
+                        <a href="auth/register-jefe.php">Registro</a>
                         <a href="help/instituciones.php">Información</a>
                         <a href="contacto.php">Colaborar</a>
                         <a href="help/beneficios.php">Beneficios</a>
@@ -139,22 +127,8 @@
                 </div>
                 
                 <div class="footer-section">
-                    <h5>Soporte</h5>
-                    <nav class="footer-nav">
-                        <a href="help/faq.php">Preguntas Frecuentes</a>
-                        <a href="docs/manual.pdf" target="_blank">Manual de Usuario</a>
-                        <a href="contacto.php">Contacto</a>
-                        <a href="help/status.php">Estado del Sistema</a>
-                    </nav>
-                </div>
-                
-                <div class="footer-section">
                     <h5>Contacto</h5>
                     <div class="contact-info">
-                        <div class="contact-item">
-                            <i class="fas fa-map-marker-alt"></i>
-                            <span>Av. Adolfo López Mateos #1801 Ote.<br>Fracc. Bona Gens, Aguascalientes, Ags.</span>
-                        </div>
                         <div class="contact-item">
                             <i class="fas fa-phone"></i>
                             <a href="tel:+524499105002">(449) 910-5002</a>
@@ -185,7 +159,7 @@
                     <div class="footer-stats">
                         <div class="stat-item">
                             <span class="stat-number">2,500+</span>
-                            <span class="stat-label">Estudiantes Activos</span>
+                            <span class="stat-label">Estudiantes</span>
                         </div>
                         <div class="stat-item">
                             <span class="stat-number">15</span>
@@ -220,11 +194,11 @@
     <?php endif; ?>
     
     <style>
-    /* Footer Styles */
+    /* Footer Styles - Versión Compacta */
     .app-footer {
         background: var(--bg-white);
         border-top: 1px solid var(--border);
-        margin-top: 3rem;
+        margin-top: 2rem;
         margin-left: var(--sidebar-width);
         transition: var(--transition);
     }
@@ -232,26 +206,26 @@
     .landing-footer {
         background: linear-gradient(135deg, var(--bg-dark) 0%, var(--bg-darker) 100%);
         color: white;
-        margin-top: 4rem;
+        margin-top: 2rem;
     }
     
     .footer-container {
         max-width: 1200px;
         margin: 0 auto;
-        padding: 3rem 2rem 0;
+        padding: 2rem 2rem 0;
     }
     
     .footer-content {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        grid-template-columns: 1.5fr 1fr 1fr 1fr;
         gap: 3rem;
-        margin-bottom: 3rem;
+        margin-bottom: 2rem;
     }
     
     .footer-section h5 {
-        font-size: 1.125rem;
+        font-size: 1rem;
         font-weight: 600;
-        margin-bottom: 1.5rem;
+        margin-bottom: 1rem;
         color: var(--text-primary);
     }
     
@@ -259,19 +233,19 @@
         color: white;
     }
     
-    /* Footer Brand */
+    /* Footer Brand - Más espacio */
     .footer-brand {
         display: flex;
-        align-items: flex-start;
-        gap: 1rem;
-        margin-bottom: 2rem;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 1.25rem;
     }
     
     .footer-brand .brand-logo {
-        width: 50px;
-        height: 50px;
+        width: 36px;
+        height: 36px;
         background: linear-gradient(135deg, var(--primary), var(--primary-light));
-        border-radius: var(--radius);
+        border-radius: 8px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -279,16 +253,17 @@
     }
     
     .footer-brand .brand-logo img {
-        width: 32px;
-        height: 32px;
+        width: 22px;
+        height: 22px;
         object-fit: contain;
     }
     
     .footer-brand .brand-info h4 {
-        font-size: 1.125rem;
+        font-size: 1rem;
         font-weight: 600;
-        margin-bottom: 0.25rem;
+        margin-bottom: 0.1rem;
         color: var(--text-primary);
+        line-height: 1.2;
     }
     
     .landing-footer .footer-brand .brand-info h4 {
@@ -296,37 +271,37 @@
     }
     
     .footer-brand .brand-info p {
-        font-size: 0.875rem;
+        font-size: 0.8rem;
         color: var(--text-secondary);
-        margin: 0.25rem 0;
-        line-height: 1.4;
+        margin: 0;
+        line-height: 1.3;
     }
     
     .landing-footer .footer-brand .brand-info p {
         color: #d1d5db;
     }
     
-    /* Footer Navigation */
+    /* Footer Navigation - Más compacto */
     .footer-nav {
         display: flex;
         flex-direction: column;
-        gap: 0.75rem;
+        gap: 0.4rem;
     }
     
     .footer-nav a {
         color: var(--text-secondary);
         text-decoration: none;
-        font-size: 0.9rem;
+        font-size: 0.85rem;
         font-weight: 500;
         transition: var(--transition);
         display: flex;
         align-items: center;
-        gap: 0.5rem;
+        padding: 0.2rem 0;
     }
     
     .footer-nav a:hover {
         color: var(--primary);
-        transform: translateX(5px);
+        transform: translateX(3px);
     }
     
     .landing-footer .footer-nav a {
@@ -337,47 +312,46 @@
         color: var(--primary-light);
     }
     
-    /* Footer Info */
+    /* Footer Info - Más compacto */
     .footer-info {
         display: flex;
         flex-direction: column;
-        gap: 0.75rem;
+        gap: 0.4rem;
     }
     
     .info-item {
         display: flex;
         align-items: center;
-        gap: 0.75rem;
-        font-size: 0.875rem;
+        gap: 0.5rem;
+        font-size: 0.8rem;
         color: var(--text-secondary);
     }
     
     .info-item i {
-        width: 16px;
+        width: 12px;
         color: var(--primary);
-        font-size: 0.8rem;
+        font-size: 0.7rem;
     }
     
-    /* Contact Info */
+    /* Contact Info - Más compacto */
     .contact-info {
         display: flex;
         flex-direction: column;
-        gap: 1rem;
+        gap: 0.5rem;
     }
     
     .contact-item {
         display: flex;
-        align-items: flex-start;
-        gap: 0.75rem;
-        font-size: 0.875rem;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.8rem;
         color: #d1d5db;
     }
     
     .contact-item i {
-        width: 16px;
+        width: 12px;
         color: var(--primary-light);
-        font-size: 0.8rem;
-        margin-top: 0.1rem;
+        font-size: 0.7rem;
         flex-shrink: 0;
     }
     
@@ -391,24 +365,24 @@
         color: var(--primary-light);
     }
     
-    /* Social Links */
+    /* Social Links - Con más espacio */
     .social-links {
         display: flex;
-        gap: 1rem;
-        margin-top: 1.5rem;
+        gap: 0.5rem;
+        margin-top: 1rem;
     }
     
     .social-links a {
-        width: 40px;
-        height: 40px;
+        width: 32px;
+        height: 32px;
         background: rgba(255, 255, 255, 0.1);
         border: 1px solid rgba(255, 255, 255, 0.2);
-        border-radius: var(--radius);
+        border-radius: 8px;
         display: flex;
         align-items: center;
         justify-content: center;
         color: white;
-        font-size: 1rem;
+        font-size: 0.85rem;
         text-decoration: none;
         transition: var(--transition);
     }
@@ -416,13 +390,14 @@
     .social-links a:hover {
         background: var(--primary);
         border-color: var(--primary);
-        transform: translateY(-2px);
+        transform: translateY(-1px);
     }
     
-    /* Footer Bottom */
+    /* Footer Bottom - Más espacio */
     .footer-bottom {
         border-top: 1px solid var(--border);
-        padding: 2rem 0;
+        padding: 1.5rem 0;
+        margin-top: 1rem;
     }
     
     .landing-footer .footer-bottom {
@@ -434,19 +409,20 @@
         justify-content: space-between;
         align-items: center;
         flex-wrap: wrap;
-        gap: 2rem;
+        gap: 1rem;
     }
     
     .copyright {
         display: flex;
         flex-direction: column;
-        gap: 0.5rem;
+        gap: 0.3rem;
     }
     
     .copyright p {
-        font-size: 0.875rem;
+        font-size: 0.8rem;
         color: var(--text-secondary);
         margin: 0;
+        line-height: 1.3;
     }
     
     .landing-footer .copyright p {
@@ -455,12 +431,12 @@
     
     .legal-links {
         display: flex;
-        gap: 1.5rem;
+        gap: 1rem;
         flex-wrap: wrap;
     }
     
     .legal-links a {
-        font-size: 0.8rem;
+        font-size: 0.75rem;
         color: var(--text-light);
         text-decoration: none;
         transition: var(--transition);
@@ -479,48 +455,38 @@
         color: var(--primary-light);
     }
     
-    /* Footer Actions */
+    /* Footer Actions - Más pequeño */
     .footer-actions {
         display: flex;
         align-items: center;
-        gap: 1rem;
+        gap: 0.5rem;
     }
     
-    .theme-toggle,
-    .language-btn {
-        width: 40px;
-        height: 40px;
+    .theme-toggle {
+        width: 32px;
+        height: 32px;
         background: var(--bg-light);
         border: 1px solid var(--border);
-        border-radius: var(--radius);
+        border-radius: 8px;
         display: flex;
         align-items: center;
         justify-content: center;
         color: var(--text-secondary);
         cursor: pointer;
         transition: var(--transition);
-        font-size: 0.9rem;
+        font-size: 0.8rem;
     }
     
-    .theme-toggle:hover,
-    .language-btn:hover {
+    .theme-toggle:hover {
         background: var(--primary);
         color: white;
         border-color: var(--primary);
     }
     
-    .language-btn {
-        gap: 0.25rem;
-        padding: 0 0.5rem;
-        width: auto;
-        font-size: 0.8rem;
-        font-weight: 500;
-    }
-    
-    /* Footer Stats */
+    /* Footer Stats - Más compacto */
     .footer-stats {
         display: flex;
-        gap: 2rem;
+        gap: 1.5rem;
         align-items: center;
     }
     
@@ -530,40 +496,54 @@
     
     .footer-stats .stat-number {
         display: block;
-        font-size: 1.25rem;
+        font-size: 1rem;
         font-weight: 700;
         color: var(--primary-light);
         line-height: 1;
     }
     
     .footer-stats .stat-label {
-        font-size: 0.75rem;
+        font-size: 0.7rem;
         color: #9ca3af;
-        margin-top: 0.25rem;
+        margin-top: 0.1rem;
     }
     
-    /* Responsive */
+    /* Brand Section especial */
+    .brand-section {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .user-section .footer-info {
+        max-width: 180px;
+    }
+    
+    /* Responsive - Ajustado para footer compacto */
     @media (max-width: 1024px) {
         .app-footer {
             margin-left: 0;
+        }
+        
+        .footer-content {
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
         }
     }
     
     @media (max-width: 768px) {
         .footer-container {
-            padding: 2rem 1rem 0;
+            padding: 1rem;
         }
         
         .footer-content {
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 2rem;
-            margin-bottom: 2rem;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 2.5rem;
+            margin-bottom: 1.5rem;
         }
         
         .footer-bottom-content {
             flex-direction: column;
             text-align: center;
-            gap: 1.5rem;
+            gap: 0.75rem;
         }
         
         .footer-stats {
@@ -577,11 +557,15 @@
         .legal-links {
             justify-content: center;
         }
+        
+        .brand-section {
+            grid-column: 1 / -1;
+        }
     }
     
     @media (max-width: 480px) {
         .footer-container {
-            padding: 1.5rem 0.75rem 0;
+            padding: 0.75rem;
         }
         
         .footer-content {
@@ -590,19 +574,22 @@
         }
         
         .footer-brand {
-            flex-direction: column;
+            justify-content: center;
             text-align: center;
-            gap: 0.75rem;
         }
         
         .footer-stats {
-            flex-direction: column;
+            flex-direction: row;
             gap: 0.75rem;
         }
         
         .legal-links {
-            flex-direction: column;
-            gap: 0.5rem;
+            flex-direction: row;
+            gap: 0.75rem;
+        }
+        
+        .social-links {
+            justify-content: center;
         }
     }
     
@@ -624,8 +611,7 @@
         color: #d1d5db;
     }
     
-    [data-theme="dark"] .theme-toggle,
-    [data-theme="dark"] .language-btn {
+    [data-theme="dark"] .theme-toggle {
         background: rgba(255, 255, 255, 0.1);
         border-color: rgba(255, 255, 255, 0.2);
         color: white;
@@ -683,15 +669,6 @@
             });
         }
         
-        // Language selector (placeholder functionality)
-        const languageBtn = document.querySelector('.language-btn');
-        if (languageBtn) {
-            languageBtn.addEventListener('click', function() {
-                // Implementar cambio de idioma aquí
-                console.log('Language selector clicked');
-            });
-        }
-        
         // Smooth scroll for footer links
         document.querySelectorAll('.footer-nav a[href^="#"]').forEach(anchor => {
             anchor.addEventListener('click', function(e) {
@@ -710,7 +687,7 @@
         const footerStats = document.querySelectorAll('.footer-stats .stat-number');
         const observerOptions = {
             threshold: 0.5,
-            rootMargin: '0px 0px -100px 0px'
+            rootMargin: '0px 0px -50px 0px'
         };
         
         const statsObserver = new IntersectionObserver((entries) => {
@@ -734,7 +711,7 @@
         });
         
         function animateNumber(element, start, end, originalText) {
-            const duration = 1000;
+            const duration = 800;
             const startTime = performance.now();
             const suffix = originalText.replace(/[\d,]/g, '');
             
@@ -759,13 +736,11 @@
                 this.style.opacity = '0.7';
                 setTimeout(() => {
                     this.style.opacity = '';
-                }, 300);
+                }, 200);
             });
         });
     });
     </script>
-    
-  
     
 </body>
 </html>

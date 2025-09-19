@@ -1,110 +1,164 @@
 <?php
 require_once '../config/config.php';
+require_once '../config/database.php'; // Agregar explícitamente
 require_once '../config/session.php';
 require_once '../config/functions.php';
 
+// Inicializar buffer de salida para evitar problemas con headers
+ob_start();
+
 $session = SecureSession::getInstance();
 
-// Verificar autenticación y rol de manera más robusta
+// Verificación robusta de autenticación
 if (!$session->isLoggedIn()) {
+    // Limpiar cualquier output antes de redireccionar
+    if (ob_get_level()) {
+        ob_end_clean();
+    }
     header("Location: ../auth/login.php");
     exit();
 }
 
-if ($session->getUserRole() !== 'estudiante') {
-    header("Location: ../dashboard/" . $session->getUserRole() . ".php");
+// Verificación robusta del rol
+$userRole = $session->getUserRole();
+if ($userRole !== 'estudiante') {
+    // Limpiar cualquier output antes de redireccionar
+    if (ob_get_level()) {
+        ob_end_clean();
+    }
+    
+    // Redirigir al dashboard correcto
+    if (in_array($userRole, ['jefe_departamento', 'jefe_laboratorio'])) {
+        header("Location: ../dashboard/$userRole.php");
+    } else {
+        // Rol no válido, cerrar sesión
+        $session->destroy();
+        header("Location: ../auth/login.php");
+    }
     exit();
 }
 
 $db = Database::getInstance();
 $usuario = $session->getUser();
-$estudianteId = $usuario['id'];
 
-// Verificar que el usuario esté completo
-if (!$usuario || !isset($usuario['id'])) {
+// Verificación robusta del usuario
+if (!$usuario || !isset($usuario['id']) || empty($usuario['id'])) {
+    error_log("Usuario incompleto en sesión: " . print_r($usuario, true));
+    
+    // Limpiar cualquier output antes de redireccionar
+    if (ob_get_level()) {
+        ob_end_clean();
+    }
+    
+    // Destruir sesión corrupta y redirigir
+    $session->destroy();
     header("Location: ../auth/login.php");
     exit();
 }
 
-// Obtener datos del estudiante
-$estudiante = $db->fetch("
-    SELECT e.*, u.email 
-    FROM estudiantes e 
-    JOIN usuarios u ON e.usuario_id = u.id 
-    WHERE e.usuario_id = ?
-", [$estudianteId]);
+$estudianteId = $usuario['id'];
 
-// Obtener solicitud activa
-$solicitudActiva = $db->fetch("
-    SELECT s.*, p.nombre_proyecto, jl.nombre as jefe_lab_nombre, jl.laboratorio,
-           jd.nombre as jefe_depto_nombre
-    FROM solicitudes_servicio s
-    JOIN proyectos_laboratorio p ON s.proyecto_id = p.id
-    LEFT JOIN jefes_laboratorio jl ON s.jefe_laboratorio_id = jl.id
-    JOIN jefes_departamento jd ON s.jefe_departamento_id = jd.id
-    WHERE s.estudiante_id = :estudiante_id 
-    AND s.estado IN ('pendiente', 'aprobada', 'en_proceso')
-    ORDER BY s.fecha_solicitud DESC
-    LIMIT 1
-", ['estudiante_id' => $estudiante['id']]);
+try {
+    // Obtener datos del estudiante con manejo de errores
+    $estudiante = $db->fetch("
+        SELECT e.*, u.email 
+        FROM estudiantes e 
+        JOIN usuarios u ON e.usuario_id = u.id 
+        WHERE e.usuario_id = ?
+    ", [$estudianteId]);
 
-// Obtener reportes pendientes
-$reportesPendientes = [];
-if ($solicitudActiva && $solicitudActiva['estado'] === 'en_proceso') {
-    $reportesPendientes = $db->fetchAll("
-        SELECT r.* 
+    // Verificar que se encontró el estudiante
+    if (!$estudiante) {
+        error_log("No se encontró estudiante para usuario ID: $estudianteId");
+        throw new Exception("Datos del estudiante no encontrados");
+    }
+
+    // Obtener solicitud activa
+    $solicitudActiva = $db->fetch("
+        SELECT s.*, p.nombre_proyecto, jl.nombre as jefe_lab_nombre, jl.laboratorio,
+               jd.nombre as jefe_depto_nombre
+        FROM solicitudes_servicio s
+        JOIN proyectos_laboratorio p ON s.proyecto_id = p.id
+        LEFT JOIN jefes_laboratorio jl ON s.jefe_laboratorio_id = jl.id
+        JOIN jefes_departamento jd ON s.jefe_departamento_id = jd.id
+        WHERE s.estudiante_id = :estudiante_id 
+        AND s.estado IN ('pendiente', 'aprobada', 'en_proceso')
+        ORDER BY s.fecha_solicitud DESC
+        LIMIT 1
+    ", ['estudiante_id' => $estudiante['id']]);
+
+    // Obtener reportes pendientes solo si hay solicitud activa
+    $reportesPendientes = [];
+    if ($solicitudActiva && $solicitudActiva['estado'] === 'en_proceso') {
+        $reportesPendientes = $db->fetchAll("
+            SELECT r.* 
+            FROM reportes_bimestrales r
+            WHERE r.solicitud_id = :solicitud_id
+            AND r.estado = 'pendiente_evaluacion'
+            ORDER BY r.numero_reporte
+        ", ['solicitud_id' => $solicitudActiva['id']]);
+    }
+
+    // Obtener documentos recientes
+    $documentos = [];
+
+    // Oficios
+    $oficios = $db->fetchAll("
+        SELECT 'oficio' as tipo, numero_oficio as numero, fecha_emision as fecha, archivo_path
+        FROM oficios_presentacion op
+        JOIN solicitudes_servicio s ON op.solicitud_id = s.id
+        WHERE s.estudiante_id = :estudiante_id
+        ORDER BY fecha_emision DESC
+        LIMIT 3
+    ", ['estudiante_id' => $estudiante['id']]);
+
+    // Constancias
+    $constancias = $db->fetchAll("
+        SELECT 'constancia' as tipo, numero_constancia as numero, fecha_emision as fecha, archivo_path
+        FROM constancias
+        WHERE estudiante_id = :estudiante_id
+        ORDER BY fecha_emision DESC
+        LIMIT 3
+    ", ['estudiante_id' => $estudiante['id']]);
+
+    $documentos = array_merge($oficios, $constancias);
+
+    // Calcular estadísticas
+    $horasRequeridas = 500;
+    $horasCompletadas = $estudiante['horas_completadas'] ?? 0;
+    $progreso = min(100, ($horasCompletadas / $horasRequeridas) * 100);
+
+    // Obtener estadísticas adicionales
+    $totalReportesResult = $db->fetch("
+        SELECT COUNT(*) as total
         FROM reportes_bimestrales r
-        WHERE r.solicitud_id = :solicitud_id
-        AND r.estado = 'pendiente_evaluacion'
-        ORDER BY r.numero_reporte
-    ", ['solicitud_id' => $solicitudActiva['id']]);
+        JOIN solicitudes_servicio s ON r.solicitud_id = s.id
+        WHERE s.estudiante_id = :estudiante_id
+    ", ['estudiante_id' => $estudiante['id']]);
+    $totalReportes = $totalReportesResult ? $totalReportesResult['total'] : 0;
+
+    $reportesAprobadosResult = $db->fetch("
+        SELECT COUNT(*) as total
+        FROM reportes_bimestrales r
+        JOIN solicitudes_servicio s ON r.solicitud_id = s.id
+        WHERE s.estudiante_id = :estudiante_id AND r.estado = 'aprobado'
+    ", ['estudiante_id' => $estudiante['id']]);
+    $reportesAprobados = $reportesAprobadosResult ? $reportesAprobadosResult['total'] : 0;
+
+} catch (Exception $e) {
+    error_log("Error en dashboard estudiante: " . $e->getMessage());
+    
+    // Limpiar cualquier output antes de redireccionar
+    if (ob_get_level()) {
+        ob_end_clean();
+    }
+    
+    // En caso de error, mostrar mensaje y redirigir
+    // Guardar mensaje flash en la sesión
+    $_SESSION['flash_error'] = 'Error al cargar el dashboard. Inténtalo nuevamente.';
+    header("Location: ../auth/login.php");
+    exit();
 }
-
-// Obtener documentos recientes
-$documentos = [];
-
-// Oficios
-$oficios = $db->fetchAll("
-    SELECT 'oficio' as tipo, numero_oficio as numero, fecha_emision as fecha, archivo_path
-    FROM oficios_presentacion op
-    JOIN solicitudes_servicio s ON op.solicitud_id = s.id
-    WHERE s.estudiante_id = :estudiante_id
-    ORDER BY fecha_emision DESC
-    LIMIT 3
-", ['estudiante_id' => $estudiante['id']]);
-
-// Constancias
-$constancias = $db->fetchAll("
-    SELECT 'constancia' as tipo, numero_constancia as numero, fecha_emision as fecha, archivo_path
-    FROM constancias
-    WHERE estudiante_id = :estudiante_id
-    ORDER BY fecha_emision DESC
-    LIMIT 3
-", ['estudiante_id' => $estudiante['id']]);
-
-$documentos = array_merge($oficios, $constancias);
-
-// Calcular estadísticas
-$horasRequeridas = 500;
-$horasCompletadas = $estudiante['horas_completadas'] ?? 0;
-$progreso = min(100, ($horasCompletadas / $horasRequeridas) * 100);
-
-// Obtener estadísticas adicionales
-$totalReportesResult = $db->fetch("
-    SELECT COUNT(*) as total
-    FROM reportes_bimestrales r
-    JOIN solicitudes_servicio s ON r.solicitud_id = s.id
-    WHERE s.estudiante_id = :estudiante_id
-", ['estudiante_id' => $estudiante['id']]);
-$totalReportes = $totalReportesResult ? $totalReportesResult['total'] : 0;
-
-$reportesAprobadosResult = $db->fetch("
-    SELECT COUNT(*) as total
-    FROM reportes_bimestrales r
-    JOIN solicitudes_servicio s ON r.solicitud_id = s.id
-    WHERE s.estudiante_id = :estudiante_id AND r.estado = 'aprobado'
-", ['estudiante_id' => $estudiante['id']]);
-$reportesAprobados = $reportesAprobadosResult ? $reportesAprobadosResult['total'] : 0;
 
 $pageTitle = "Dashboard Estudiante - " . APP_NAME;
 $dashboardJS = true;
@@ -112,7 +166,11 @@ $chartsJS = true;
 
 include '../includes/header.php';
 include '../includes/sidebar.php';
+
+// Limpiar buffer de salida después de incluir archivos
+ob_end_flush();
 ?>
+<!-- EL RESTO DEL HTML Y CSS VA IGUAL QUE EN EL ARCHIVO ORIGINAL -->
 
 <div class="dashboard-container">
     <!-- Dashboard Header -->
