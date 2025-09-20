@@ -119,6 +119,31 @@ $pageTitle = "Iniciar Sesión - " . APP_NAME;
 include '../includes/header.php';
 ?>
 
+<!-- Navigation Bar para usuarios no autenticados -->
+<nav class="login-nav">
+    <div class="nav-container">
+        <div class="nav-brand">
+            <a href="../index.php" class="brand-link">
+                <div class="brand-logo">
+                    <i class="fas fa-graduation-cap"></i>
+                </div>
+                <span class="brand-text">ITA Social</span>
+            </a>
+        </div>
+        
+        <div class="nav-actions">
+            <a href="../index.php" class="btn btn-ghost">
+                <i class="fas fa-arrow-left"></i>
+                Volver al Inicio
+            </a>
+            <a href="register.php" class="btn btn-primary">
+                <i class="fas fa-user-plus"></i>
+                Registrarse
+            </a>
+        </div>
+    </div>
+</nav>
+
 <!-- Background Pattern -->
 <div class="background-pattern"></div>
 
@@ -267,6 +292,8 @@ include '../includes/header.php';
     </div>
 </div>
 
+
+
 <style>
 :root {
     --primary-color: #6366f1;
@@ -287,7 +314,7 @@ include '../includes/header.php';
     --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
     --radius: 12px;
     --radius-lg: 16px;
-    --header-height: 80px;
+    --transition: all 0.3s ease;
 }
 
 * {
@@ -304,7 +331,102 @@ body {
     min-height: 100vh;
     position: relative;
     overflow-x: hidden;
-    padding-top: var(--header-height);
+    /* Removido padding-top que causaba problemas */
+}
+
+/* Navigation Bar */
+.login-nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border-color);
+    z-index: 1000;
+    padding: 1rem 0;
+    transition: var(--transition);
+}
+
+.nav-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.nav-brand .brand-link {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    text-decoration: none;
+    color: inherit;
+}
+
+.brand-logo {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.25rem;
+    box-shadow: var(--shadow);
+}
+
+.brand-text {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.nav-actions {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    border-radius: var(--radius);
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.95rem;
+    transition: var(--transition);
+    border: none;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.btn-ghost {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid transparent;
+}
+
+.btn-ghost:hover {
+    color: var(--primary-color);
+    background: rgba(99, 102, 241, 0.1);
+    border-color: rgba(99, 102, 241, 0.2);
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
+    color: white;
+    box-shadow: var(--shadow);
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
 }
 
 /* Background Pattern */
@@ -324,11 +446,11 @@ body {
 
 /* Main Container */
 .login-container {
-    min-height: calc(100vh - var(--header-height));
+    min-height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 2rem;
+    padding: 6rem 2rem 2rem;
     position: relative;
     z-index: 2;
 }
@@ -540,7 +662,7 @@ body {
     border-radius: var(--radius);
     font-size: 1rem;
     font-family: inherit;
-    transition: all 0.2s ease;
+    transition: var(--transition);
     background: white;
 }
 
@@ -561,7 +683,7 @@ body {
     cursor: pointer;
     padding: 0.25rem;
     border-radius: 4px;
-    transition: color 0.2s ease;
+    transition: var(--transition);
 }
 
 .toggle-password:hover {
@@ -597,7 +719,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s ease;
+    transition: var(--transition);
 }
 
 .checkbox-container input:checked + .checkmark {
@@ -623,8 +745,8 @@ body {
     text-decoration: underline;
 }
 
-/* Primary Button */
-.btn-primary {
+/* Primary Button (form) */
+.login-form .btn-primary {
     width: 100%;
     padding: 1rem;
     background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
@@ -634,7 +756,7 @@ body {
     font-size: 1rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: var(--transition);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -642,16 +764,16 @@ body {
     margin-bottom: 1.5rem;
 }
 
-.btn-primary:hover {
+.login-form .btn-primary:hover {
     transform: translateY(-2px);
     box-shadow: var(--shadow-lg);
 }
 
-.btn-primary:active {
+.login-form .btn-primary:active {
     transform: translateY(0);
 }
 
-.btn-primary:disabled {
+.login-form .btn-primary:disabled {
     opacity: 0.7;
     cursor: not-allowed;
     transform: none;
@@ -685,7 +807,7 @@ body {
     text-decoration: none;
     font-weight: 500;
     font-size: 0.9rem;
-    transition: all 0.2s ease;
+    transition: var(--transition);
 }
 
 .signup-link.primary {
@@ -719,7 +841,7 @@ body {
     border-radius: var(--radius);
     text-align: center;
     border: 1px solid var(--border-color);
-    transition: all 0.2s ease;
+    transition: var(--transition);
 }
 
 .quick-card:hover {
@@ -753,14 +875,189 @@ body {
     font-size: 0.9rem;
 }
 
+/* Footer Styles */
+.login-footer {
+    background: var(--secondary-color);
+    color: white;
+    padding: 3rem 0 1rem;
+    margin-top: 4rem;
+}
+
+.footer-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+}
+
+.footer-content {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 2rem;
+    margin-bottom: 2rem;
+}
+
+.footer-section h4 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: white;
+}
+
+.footer-brand {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.footer-logo {
+    width: 50px;
+    height: 50px;
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+}
+
+.footer-info h3 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin: 0;
+}
+
+.footer-info p {
+    font-size: 0.9rem;
+    opacity: 0.8;
+    margin: 0;
+}
+
+.footer-description {
+    font-size: 0.95rem;
+    line-height: 1.6;
+    opacity: 0.9;
+}
+
+.footer-links {
+    list-style: none;
+    padding: 0;
+}
+
+.footer-links li {
+    margin-bottom: 0.5rem;
+}
+
+.footer-links a {
+    color: rgba(255, 255, 255, 0.8);
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: var(--transition);
+}
+
+.footer-links a:hover {
+    color: var(--primary-light);
+    text-decoration: underline;
+}
+
+.social-links {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.social-links a {
+    width: 40px;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    text-decoration: none;
+    transition: var(--transition);
+}
+
+.social-links a:hover {
+    background: var(--primary-color);
+    transform: translateY(-2px);
+}
+
+.footer-bottom {
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    padding-top: 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.footer-bottom p {
+    font-size: 0.875rem;
+    opacity: 0.8;
+    margin: 0;
+}
+
+.footer-links-bottom {
+    display: flex;
+    gap: 2rem;
+}
+
+.footer-links-bottom a {
+    color: rgba(255, 255, 255, 0.8);
+    text-decoration: none;
+    font-size: 0.875rem;
+    transition: var(--transition);
+}
+
+.footer-links-bottom a:hover {
+    color: var(--primary-light);
+    text-decoration: underline;
+}
+
 /* Responsive Design */
+@media (max-width: 1024px) {
+    .nav-actions {
+        gap: 0.5rem;
+    }
+    
+    .nav-actions .btn {
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+    }
+}
+
 @media (max-width: 768px) {
-    body {
-        padding-top: var(--header-height);
+    .nav-container {
+        padding: 0 1rem;
+    }
+    
+    .brand-text {
+        display: none;
+    }
+    
+    .nav-actions {
+        gap: 0.5rem;
+    }
+    
+    .nav-actions .btn {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.8rem;
+    }
+    
+    .nav-actions .btn i {
+        margin-right: 0;
+    }
+    
+    .nav-actions .btn span {
+        display: none;
     }
 
     .login-container {
         padding: 1rem;
+        padding-top: 5rem;
     }
 
     .login-wrapper {
@@ -788,6 +1085,39 @@ body {
 
     .signup-options {
         gap: 0.5rem;
+    }
+    
+    .footer-content {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+    }
+    
+    .footer-bottom {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .footer-links-bottom {
+        gap: 1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .login-container {
+        padding: 0.5rem;
+        padding-top: 4.5rem;
+    }
+    
+    .login-form-container {
+        padding: 1.5rem;
+    }
+    
+    .form-header h2 {
+        font-size: 1.75rem;
+    }
+    
+    .branding-content h1 {
+        font-size: 2rem;
     }
 }
 </style>
@@ -842,6 +1172,21 @@ document.addEventListener('DOMContentLoaded', function() {
         input.addEventListener('blur', function() {
             this.parentElement.classList.remove('focused');
         });
+    });
+    
+    // Header scroll effect para la navegación
+    let lastScrollY = window.scrollY;
+    const nav = document.querySelector('.login-nav');
+    
+    window.addEventListener('scroll', () => {
+        if (window.scrollY > 50) {
+            nav.style.background = 'rgba(255, 255, 255, 0.98)';
+            nav.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1)';
+        } else {
+            nav.style.background = 'rgba(255, 255, 255, 0.95)';
+            nav.style.boxShadow = 'none';
+        }
+        lastScrollY = window.scrollY;
     });
 });
 </script>

@@ -286,7 +286,7 @@ include '../../includes/sidebar.php';
                             <i class="fas fa-paper-plane"></i>
                             Enviar Solicitud
                         </button>
-                        <a href="/dashboard/estudiante.php" class="btn btn-secondary btn-lg">
+                        <a href="../../dashboard/estudiante.php" class="btn btn-secondary btn-lg">
                             <i class="fas fa-times"></i>
                             Cancelar
                         </a>
