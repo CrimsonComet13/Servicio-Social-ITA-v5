@@ -87,6 +87,12 @@ $menusByRole = [
             'badge' => null
         ],
         [
+            'label' => 'Proyectos',
+            'icon' => 'fa fa-file-alt',
+            'url' => BASE_URL . 'modules/departamento/proyectos.php',
+            'badge' => null
+        ],
+        [
             'label' => 'Solicitudes',
             'icon' => 'fas fa-clipboard-list',
             'url' => BASE_URL . 'modules/departamento/solicitudes.php',

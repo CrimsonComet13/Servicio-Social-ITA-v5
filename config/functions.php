@@ -615,4 +615,194 @@ function getJefeLaboratorioData($usuarioId) {
     ", [$usuarioId]);
 }
 
+
+// =============================================================================
+// FUNCIONES ESPECÍFICAS PARA GESTIÓN DE PROYECTOS
+// =============================================================================
+
+/**
+ * Obtener estadísticas completas de proyectos para un jefe de departamento
+ */
+function getProyectosStats($jefeDepartamentoId) {
+    $db = Database::getInstance();
+    
+    return $db->fetch("
+        SELECT 
+            COUNT(*) as total_proyectos,
+            SUM(activo) as proyectos_activos,
+            SUM(cupo_ocupado) as estudiantes_asignados,
+            SUM(horas_requeridas) as horas_totales_requeridas,
+            AVG(cupo_ocupado) as promedio_estudiantes_por_proyecto,
+            COUNT(CASE WHEN cupo_ocupado >= cupo_disponible THEN 1 END) as proyectos_llenos,
+            COUNT(CASE WHEN cupo_ocupado = 0 THEN 1 END) as proyectos_vacios
+        FROM proyectos_laboratorio 
+        WHERE jefe_departamento_id = :jefe_id
+    ", ['jefe_id' => $jefeDepartamentoId]);
+}
+
+/**
+ * Validar si un proyecto puede ser editado (sin estudiantes activos)
+ */
+function puedeEditarProyecto($proyectoId) {
+    $db = Database::getInstance();
+    
+    $estudiantesActivos = $db->fetch("
+        SELECT COUNT(*) as total 
+        FROM solicitudes_servicio 
+        WHERE proyecto_id = :proyecto_id 
+        AND estado IN ('en_proceso', 'aprobada')
+    ", ['proyecto_id' => $proyectoId])['total'];
+    
+    return $estudiantesActivos === 0;
+}
+
+/**
+ * Obtener proyectos recientes para dashboard
+ */
+function getProyectosRecientes($jefeDepartamentoId, $limit = 5) {
+    $db = Database::getInstance();
+    
+    return $db->fetchAll("
+        SELECT p.*, 
+               COUNT(s.id) as total_solicitudes,
+               COUNT(CASE WHEN s.estado = 'en_proceso' THEN 1 END) as estudiantes_activos,
+               jl.nombre as jefe_lab_nombre
+        FROM proyectos_laboratorio p
+        LEFT JOIN jefes_laboratorio jl ON p.jefe_laboratorio_id = jl.id
+        LEFT JOIN solicitudes_servicio s ON p.id = s.proyecto_id
+        WHERE p.jefe_departamento_id = :jefe_id
+        GROUP BY p.id
+        ORDER BY p.created_at DESC
+        LIMIT :limit
+    ", ['jefe_id' => $jefeDepartamentoId, 'limit' => $limit]);
+}
+
+/**
+ * Generar reporte básico de proyecto
+ */
+function generarReporteProyecto($proyectoId) {
+    $db = Database::getInstance();
+    
+    $proyecto = $db->fetch("
+        SELECT p.*, jd.departamento, jl.nombre as jefe_lab_nombre
+        FROM proyectos_laboratorio p
+        JOIN jefes_departamento jd ON p.jefe_departamento_id = jd.id
+        LEFT JOIN jefes_laboratorio jl ON p.jefe_laboratorio_id = jl.id
+        WHERE p.id = :proyecto_id
+    ", ['proyecto_id' => $proyectoId]);
+    
+    if (!$proyecto) return null;
+    
+    $estadisticas = $db->fetch("
+        SELECT 
+            COUNT(*) as total_solicitudes,
+            COUNT(CASE WHEN estado = 'pendiente' THEN 1 END) as pendientes,
+            COUNT(CASE WHEN estado = 'aprobada' THEN 1 END) as aprobadas,
+            COUNT(CASE WHEN estado = 'en_proceso' THEN 1 END) as en_proceso,
+            COUNT(CASE WHEN estado = 'concluida' THEN 1 END) as concluidas,
+            AVG(horas_completadas) as promedio_horas,
+            SUM(horas_completadas) as total_horas
+        FROM solicitudes_servicio 
+        WHERE proyecto_id = :proyecto_id
+    ", ['proyecto_id' => $proyectoId]);
+    
+    return [
+        'proyecto' => $proyecto,
+        'estadisticas' => $estadisticas,
+        'fecha_reporte' => date('Y-m-d H:i:s')
+    ];
+}
+
+/**
+ * Verificar disponibilidad de cupo en proyecto
+ */
+function tieneCupoDisponible($proyectoId) {
+    $db = Database::getInstance();
+    
+    $proyecto = $db->fetch("
+        SELECT cupo_disponible, cupo_ocupado 
+        FROM proyectos_laboratorio 
+        WHERE id = :proyecto_id AND activo = 1
+    ", ['proyecto_id' => $proyectoId]);
+    
+    return $proyecto && ($proyecto['cupo_disponible'] > $proyecto['cupo_ocupado']);
+}
+
+/**
+ * Obtener proyectos disponibles para estudiantes (activos y con cupo)
+ */
+function getProyectosDisponibles() {
+    $db = Database::getInstance();
+    
+    return $db->fetchAll("
+        SELECT p.*, jd.departamento, jl.nombre as jefe_lab_nombre
+        FROM proyectos_laboratorio p
+        JOIN jefes_departamento jd ON p.jefe_departamento_id = jd.id
+        LEFT JOIN jefes_laboratorio jl ON p.jefe_laboratorio_id = jl.id
+        WHERE p.activo = 1 
+        AND p.cupo_disponible > p.cupo_ocupado
+        ORDER BY p.created_at DESC
+    ");
+}
+
+/**
+ * Actualizar contador de cupo ocupado
+ */
+function actualizarCupoOcupado($proyectoId) {
+    $db = Database::getInstance();
+    
+    $cupoOcupado = $db->fetch("
+        SELECT COUNT(*) as total
+        FROM solicitudes_servicio 
+        WHERE proyecto_id = :proyecto_id 
+        AND estado IN ('aprobada', 'en_proceso')
+    ", ['proyecto_id' => $proyectoId])['total'];
+    
+    return $db->update('proyectos_laboratorio', 
+        ['cupo_ocupado' => $cupoOcupado], 
+        'id = :id', 
+        ['id' => $proyectoId]
+    );
+}
+
+/**
+ * Buscar proyectos por criterios
+ */
+function buscarProyectos($criterios) {
+    $db = Database::getInstance();
+    
+    $where = [];
+    $params = [];
+    
+    if (!empty($criterios['departamento_id'])) {
+        $where[] = "p.jefe_departamento_id = :departamento_id";
+        $params['departamento_id'] = $criterios['departamento_id'];
+    }
+    
+    if (!empty($criterios['activo'])) {
+        $where[] = "p.activo = :activo";
+        $params['activo'] = $criterios['activo'];
+    }
+    
+    if (!empty($criterios['search'])) {
+        $where[] = "(p.nombre_proyecto LIKE :search OR p.descripcion LIKE :search)";
+        $params['search'] = "%{$criterios['search']}%";
+    }
+    
+    if (!empty($criterios['con_cupo'])) {
+        $where[] = "p.cupo_disponible > p.cupo_ocupado";
+    }
+    
+    $whereClause = $where ? "WHERE " . implode(" AND ", $where) : "";
+    
+    return $db->fetchAll("
+        SELECT p.*, jd.departamento, jl.nombre as jefe_lab_nombre
+        FROM proyectos_laboratorio p
+        JOIN jefes_departamento jd ON p.jefe_departamento_id = jd.id
+        LEFT JOIN jefes_laboratorio jl ON p.jefe_laboratorio_id = jl.id
+        $whereClause
+        ORDER BY p.created_at DESC
+    ", $params);
+}
+
 ?>

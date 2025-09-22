@@ -62,7 +62,7 @@ include '../../includes/sidebar.php';
         <h1>Gestión de Proyectos</h1>
         <p>Administra los proyectos de servicio social del departamento <?= htmlspecialchars($usuario['departamento']) ?></p>
         <div class="header-actions">
-            <a href="/modules/departamento/proyecto-crear.php" class="btn btn-primary">
+            <a href="/servicio_social_ita/modules/departamento/proyecto-crear.php" class="btn btn-primary">
                 <i class="fas fa-plus"></i> Crear Nuevo Proyecto
             </a>
         </div>
@@ -158,18 +158,18 @@ include '../../includes/sidebar.php';
                 </div>
                 
                 <div class="project-actions">
-                    <a href="/modules/departamento/proyecto-detalle.php?id=<?= $proyecto['id'] ?>" class="btn btn-sm btn-info">
+                    <a href="/servicio_social_ita/modules/departamento/proyecto-detalle.php?id=<?= $proyecto['id'] ?>" class="btn btn-sm btn-info">
                         <i class="fas fa-eye"></i> Ver
                     </a>
-                    <a href="/modules/departamento/proyecto-editar.php?id=<?= $proyecto['id'] ?>" class="btn btn-sm btn-warning">
+                    <a href="/servicio_social_ita/modules/departamento/proyecto-editar.php?id=<?= $proyecto['id'] ?>" class="btn btn-sm btn-warning">
                         <i class="fas fa-edit"></i> Editar
                     </a>
                     <?php if ($proyecto['activo']): ?>
-                        <a href="/modules/departamento/proyecto-desactivar.php?id=<?= $proyecto['id'] ?>" class="btn btn-sm btn-secondary" onclick="return confirm('¿Desactivar este proyecto?')">
+                        <a href="/servicio_social_ita/modules/departamento/proyecto-desactivar.php?id=<?= $proyecto['id'] ?>" class="btn btn-sm btn-secondary" onclick="return confirm('¿Desactivar este proyecto?')">
                             <i class="fas fa-pause"></i> Desactivar
                         </a>
                     <?php else: ?>
-                        <a href="/modules/departamento/proyecto-activar.php?id=<?= $proyecto['id'] ?>" class="btn btn-sm btn-success">
+                        <a href="/servicio_social_ita/modules/departamento/proyecto-activar.php?id=<?= $proyecto['id'] ?>" class="btn btn-sm btn-success">
                             <i class="fas fa-play"></i> Activar
                         </a>
                     <?php endif; ?>
@@ -206,7 +206,7 @@ include '../../includes/sidebar.php';
             <i class="fas fa-project-diagram"></i>
             <h3>No hay proyectos registrados</h3>
             <p>Crea tu primer proyecto de servicio social</p>
-            <a href="/modules/departamento/proyecto-crear.php" class="btn btn-primary">
+            <a href="/servicio_social_ita/modules/departamento/proyecto-crear.php" class="btn btn-primary">
                 <i class="fas fa-plus"></i> Crear Proyecto
             </a>
         </div>

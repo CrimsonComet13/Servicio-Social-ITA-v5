@@ -10,7 +10,7 @@ $db = Database::getInstance();
 $usuario = $session->getUser();
 $jefeId = $usuario['id'];
 
-// Obtener estadísticas del departamento - CORREGIDO
+// Obtener estadísticas del departamento - ACTUALIZADO CON PROYECTOS
 $stats = $db->fetch("
     SELECT 
         COUNT(DISTINCT s.id) as total_solicitudes,
@@ -18,11 +18,14 @@ $stats = $db->fetch("
         COUNT(DISTINCT e.id) as total_estudiantes,
         COUNT(DISTINCT jl.id) as total_laboratorios,
         COUNT(DISTINCT CASE WHEN s.estado = 'en_proceso' THEN s.id END) as servicios_activos,
+        COUNT(DISTINCT p.id) as total_proyectos,
+        COUNT(DISTINCT CASE WHEN p.activo = 1 THEN p.id END) as proyectos_activos,
         COALESCE(SUM(e.horas_completadas), 0) as horas_totales
     FROM jefes_departamento jd
     LEFT JOIN solicitudes_servicio s ON jd.id = s.jefe_departamento_id
     LEFT JOIN estudiantes e ON s.estudiante_id = e.id
     LEFT JOIN jefes_laboratorio jl ON jd.id = jl.jefe_departamento_id
+    LEFT JOIN proyectos_laboratorio p ON jd.id = p.jefe_departamento_id
     WHERE jd.id = :jefe_id
 ", ['jefe_id' => $jefeId]);
 
@@ -70,6 +73,21 @@ $actividadesRecientes = $db->fetchAll("
     LIMIT 5
 ", ['jefe_id' => $jefeId]);
 
+// Obtener proyectos activos recientes - NUEVA CONSULTA INTEGRADA
+$proyectosRecientes = $db->fetchAll("
+    SELECT p.*, 
+           COUNT(s.id) as total_solicitudes,
+           COUNT(CASE WHEN s.estado = 'en_proceso' THEN 1 END) as estudiantes_activos,
+           jl.nombre as jefe_lab_nombre
+    FROM proyectos_laboratorio p
+    LEFT JOIN solicitudes_servicio s ON p.id = s.proyecto_id
+    LEFT JOIN jefes_laboratorio jl ON p.jefe_laboratorio_id = jl.id
+    WHERE p.jefe_departamento_id = :jefe_id AND p.activo = 1
+    GROUP BY p.id
+    ORDER BY p.created_at DESC
+    LIMIT 3
+", ['jefe_id' => $jefeId]);
+
 $pageTitle = "Dashboard Jefe de Departamento - " . APP_NAME;
 $dashboardJS = true;
 $chartsJS = true;
@@ -100,7 +118,7 @@ include '../includes/sidebar.php';
         </div>
     </div>
 
-    <!-- Statistics Overview -->
+    <!-- Statistics Overview - ACTUALIZADO CON PROYECTOS -->
     <div class="statistics-overview">
         <div class="stat-card solicitudes">
             <div class="stat-icon">
@@ -180,6 +198,22 @@ include '../includes/sidebar.php';
                 <div class="stat-trend">
                     <i class="fas fa-building"></i>
                     <span>Activos</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Nueva tarjeta para proyectos - INTEGRADA -->
+        <div class="stat-card proyectos">
+            <div class="stat-icon">
+                <i class="fas fa-project-diagram"></i>
+            </div>
+            <div class="stat-content">
+                <h3 class="stat-title">Proyectos Activos</h3>
+                <div class="stat-number"><?= $stats['proyectos_activos'] ?? 0 ?></div>
+                <p class="stat-description">En ejecución</p>
+                <div class="stat-trend">
+                    <i class="fas fa-project-diagram"></i>
+                    <span><?= $stats['total_proyectos'] ?? 0 ?> total</span>
                 </div>
             </div>
         </div>
@@ -324,11 +358,96 @@ include '../includes/sidebar.php';
                     </div>
                 <?php endif; ?>
             </div>
+
+            <!-- Proyectos Activos Section - NUEVA SECCIÓN INTEGRADA -->
+            <div class="content-section">
+                <div class="section-header">
+                    <h2 class="section-title">
+                        <i class="fas fa-project-diagram"></i>
+                        Proyectos Activos Recientes
+                    </h2>
+                    <a href="../modules/departamento/proyectos.php" class="section-link">
+                        Ver todos <i class="fas fa-arrow-right"></i>
+                    </a>
+                </div>
+
+                <?php if ($proyectosRecientes): ?>
+                    <div class="requests-grid">
+                        <?php foreach ($proyectosRecientes as $proyecto): ?>
+                        <div class="request-card project-card">
+                            <div class="request-header">
+                                <div class="student-avatar project-avatar">
+                                    <i class="fas fa-project-diagram"></i>
+                                </div>
+                                <div class="student-info">
+                                    <h4><?= htmlspecialchars($proyecto['nombre_proyecto']) ?></h4>
+                                    <p><?= htmlspecialchars($proyecto['laboratorio_asignado'] ?? 'Sin laboratorio asignado') ?></p>
+                                </div>
+                                <div class="request-date">
+                                    <i class="fas fa-calendar"></i>
+                                    <span><?= formatDate($proyecto['created_at']) ?></span>
+                                </div>
+                            </div>
+                            
+                            <div class="request-body">
+                                <div class="project-info">
+                                    <h5>Descripción del Proyecto</h5>
+                                    <p><?= htmlspecialchars(shortenText($proyecto['descripcion'] ?? 'Sin descripción', 100)) ?></p>
+                                    <?php if ($proyecto['jefe_lab_nombre']): ?>
+                                    <small>Jefe de Laboratorio: <?= htmlspecialchars($proyecto['jefe_lab_nombre']) ?></small>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                            
+                            <div class="project-stats-mini">
+                                <div class="stat-mini">
+                                    <i class="fas fa-users"></i>
+                                    <span><?= $proyecto['estudiantes_activos'] ?> activos</span>
+                                </div>
+                                <div class="stat-mini">
+                                    <i class="fas fa-paper-plane"></i>
+                                    <span><?= $proyecto['total_solicitudes'] ?> solicitudes</span>
+                                </div>
+                                <div class="stat-mini">
+                                    <i class="fas fa-user-check"></i>
+                                    <span><?= $proyecto['cupo_ocupado'] ?? 0 ?>/<?= $proyecto['cupo_disponible'] ?? 0 ?> cupo</span>
+                                </div>
+                            </div>
+                            
+                            <div class="request-actions">
+                                <a href="../modules/departamento/proyecto-detalle.php?id=<?= $proyecto['id'] ?>" class="btn btn-secondary btn-sm">
+                                    <i class="fas fa-eye"></i> Ver Detalle
+                                </a>
+                                <a href="../modules/departamento/proyecto-editar.php?id=<?= $proyecto['id'] ?>" class="btn btn-warning btn-sm">
+                                    <i class="fas fa-edit"></i> Editar
+                                </a>
+                                <a href="../modules/departamento/proyectos.php" class="btn btn-primary btn-sm">
+                                    <i class="fas fa-list"></i> Gestionar
+                                </a>
+                            </div>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php else: ?>
+                    <div class="empty-state">
+                        <div class="empty-icon">
+                            <i class="fas fa-project-diagram"></i>
+                        </div>
+                        <div class="empty-content">
+                            <h3>No hay proyectos activos</h3>
+                            <p>Comienza creando tu primer proyecto de servicio social.</p>
+                            <a href="../modules/departamento/proyecto-crear.php" class="btn btn-primary">
+                                <i class="fas fa-plus"></i> Crear Proyecto
+                            </a>
+                        </div>
+                    </div>
+                <?php endif; ?>
+            </div>
         </div>
 
         <!-- Right Column -->
         <div class="sidebar-column">
-            <!-- Quick Actions Widget -->
+            <!-- Quick Actions Widget - ACTUALIZADO CON PROYECTOS -->
             <div class="widget">
                 <div class="widget-header">
                     <h3 class="widget-title">
@@ -364,6 +483,19 @@ include '../includes/sidebar.php';
                             </div>
                         </a>
 
+                        <a href="../modules/departamento/proyectos.php" class="action-card">
+                            <div class="action-icon proyectos">
+                                <i class="fas fa-project-diagram"></i>
+                            </div>
+                            <div class="action-text">
+                                <span>Proyectos</span>
+                                <small>Gestionar proyectos</small>
+                            </div>
+                            <div class="action-badge">
+                                <?= $stats['proyectos_activos'] ?? 0 ?>
+                            </div>
+                        </a>
+
                         <a href="../modules/departamento/laboratorios.php" class="action-card">
                             <div class="action-icon laboratorios">
                                 <i class="fas fa-flask"></i>
@@ -387,64 +519,23 @@ include '../includes/sidebar.php';
                             </div>
                         </a>
 
-                        <a href="../modules/departamento/configuracion.php" class="action-card">
+                        <a href="../modules/departamento/proyecto-crear.php" class="action-card">
                             <div class="action-icon configuracion">
-                                <i class="fas fa-cog"></i>
+                                <i class="fas fa-plus"></i>
                             </div>
                             <div class="action-text">
-                                <span>Configuración</span>
-                                <small>Ajustes del sistema</small>
-                            </div>
-                        </a>
-
-                        <a href="../modules/departamento/proyectos.php" class="action-card">
-                            <div class="action-icon proyectos">
-                                <i class="fas fa-project-diagram"></i>
-                            </div>
-                            <div class="action-text">
-                                <span>Proyectos</span>
-                                <small>Gestionar proyectos</small>
+                                <span>Nuevo Proyecto</span>
+                                <small>Crear proyecto</small>
                             </div>
                         </a>
                     </div>
                 </div>
             </div>
 
-            <!-- Recent Activities Widget -->
-            <div class="widget">
-                <div class="widget-header">
-                    <h3 class="widget-title">
-                        <i class="fas fa-history"></i>
-                        Actividades Recientes
-                    </h3>
-                    <a href="../modules/departamento/actividades.php" class="widget-link">Ver todas</a>
-                </div>
-                <div class="widget-content">
-                    <?php if ($actividadesRecientes): ?>
-                        <div class="activities-list">
-                            <?php foreach ($actividadesRecientes as $actividad): ?>
-                            <div class="activity-item">
-                                <div class="activity-icon <?= $actividad['estado'] ?>">
-                                    <i class="fas fa-<?= $actividad['tipo'] === 'solicitud' ? 'paper-plane' : 'bell' ?>"></i>
-                                </div>
-                                <div class="activity-content">
-                                    <h5><?= htmlspecialchars($actividad['titulo']) ?></h5>
-                                    <p><?= htmlspecialchars($actividad['descripcion']) ?></p>
-                                    <span class="activity-date"><?= formatDate($actividad['fecha']) ?></span>
-                                </div>
-                            </div>
-                            <?php endforeach; ?>
-                        </div>
-                    <?php else: ?>
-                        <div class="empty-activities">
-                            <i class="fas fa-history"></i>
-                            <p>No hay actividades recientes</p>
-                        </div>
-                    <?php endif; ?>
-                </div>
-            </div>
+   
+            
 
-            <!-- Department Summary Widget -->
+            <!-- Department Summary Widget - ACTUALIZADO -->
             <div class="widget">
                 <div class="widget-header">
                     <h3 class="widget-title">
@@ -468,13 +559,11 @@ include '../includes/sidebar.php';
 
                         <div class="summary-item">
                             <div class="summary-icon">
-                                <i class="fas fa-clock"></i>
+                                <i class="fas fa-project-diagram"></i>
                             </div>
                             <div class="summary-data">
-                                <span class="summary-value">
-                                    <?= $stats['servicios_activos'] > 0 ? round($stats['horas_totales'] / $stats['servicios_activos']) : 0 ?>
-                                </span>
-                                <span class="summary-label">Horas Promedio</span>
+                                <span class="summary-value"><?= $stats['proyectos_activos'] ?? 0 ?></span>
+                                <span class="summary-label">Proyectos Activos</span>
                             </div>
                         </div>
 
@@ -623,6 +712,15 @@ include '../includes/sidebar.php';
 
 .stat-card.laboratorios {
     --gradient-color: var(--secondary);
+}
+
+/* Estilos específicos para proyectos - INTEGRADO */
+.stat-card.proyectos {
+    --gradient-color: #8b5cf6;
+}
+
+.stat-card.proyectos .stat-icon {
+    background: linear-gradient(135deg, #8b5cf6, #a78bfa);
 }
 
 .stat-icon {
@@ -791,6 +889,15 @@ include '../includes/sidebar.php';
     flex-shrink: 0;
 }
 
+/* Estilos específicos para avatares de proyectos - INTEGRADO */
+.project-avatar {
+    background: linear-gradient(135deg, #8b5cf6, #a78bfa) !important;
+}
+
+.project-avatar i {
+    font-size: 1rem;
+}
+
 .student-info {
     flex: 1;
 }
@@ -836,6 +943,26 @@ include '../includes/sidebar.php';
 .project-info small {
     color: var(--text-light);
     font-size: 0.8rem;
+}
+
+/* Estilos para estadísticas mini de proyectos - INTEGRADO */
+.project-stats-mini {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.stat-mini {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.stat-mini i {
+    font-size: 0.7rem;
+    color: var(--primary);
 }
 
 .request-actions {
@@ -1085,7 +1212,7 @@ include '../includes/sidebar.php';
 }
 
 .action-icon.proyectos {
-    background: linear-gradient(135deg, var(--warning), #fbbf24);
+    background: linear-gradient(135deg, #8b5cf6, #a78bfa);
 }
 
 .action-text {
@@ -1298,6 +1425,16 @@ include '../includes/sidebar.php';
     box-shadow: var(--shadow-lg);
 }
 
+.btn-warning {
+    background: linear-gradient(135deg, var(--warning), #fbbf24);
+    color: white;
+}
+
+.btn-warning:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
 .btn-error {
     background: linear-gradient(135deg, var(--error), #f87171);
     color: white;
@@ -1344,6 +1481,7 @@ include '../includes/sidebar.php';
 .statistics-overview > *:nth-child(3) { animation-delay: 0.3s; }
 .statistics-overview > *:nth-child(4) { animation-delay: 0.4s; }
 .statistics-overview > *:nth-child(5) { animation-delay: 0.5s; }
+.statistics-overview > *:nth-child(6) { animation-delay: 0.6s; }
 
 /* Responsive Design */
 @media (max-width: 1200px) {
@@ -1462,6 +1600,16 @@ include '../includes/sidebar.php';
     
     .widget-content {
         padding: 1rem;
+    }
+
+    /* Ajustes responsivos para proyectos */
+    .project-stats-mini {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .stat-mini {
+        justify-content: center;
     }
 }
 

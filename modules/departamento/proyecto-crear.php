@@ -113,7 +113,7 @@ include '../../includes/sidebar.php';
             <h1>Crear Nuevo Proyecto</h1>
             <p>Registra un nuevo proyecto de servicio social para tu departamento</p>
         </div>
-        <a href="/modules/departamento/proyectos.php" class="btn btn-secondary">
+        <a href="/servicio_social_ita/modules/departamento/proyectos.php" class="btn btn-secondary">
             <i class="fas fa-arrow-left"></i> Volver a Proyectos
         </a>
     </div>
