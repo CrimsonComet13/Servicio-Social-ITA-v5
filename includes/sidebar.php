@@ -83,19 +83,15 @@ $menusByRole = [
         [
             'label' => 'Dashboard',
             'icon' => 'fas fa-home',
-            'url' => BASE_URL . 'dashboard/jefe-departamento.php',
+            'url' => BASE_URL . 'dashboard/jefe_departamento.php',
             'badge' => null
         ],
         [
             'label' => 'Solicitudes',
             'icon' => 'fas fa-clipboard-list',
             'url' => BASE_URL . 'modules/departamento/solicitudes.php',
-            'badge' => '12',
-            'submenu' => [
-                ['label' => 'Pendientes', 'url' => BASE_URL . 'modules/departamento/solicitudes-pendientes.php'],
-                ['label' => 'Aprobadas', 'url' => BASE_URL . 'modules/departamento/solicitudes-aprobadas.php'],
-                ['label' => 'Rechazadas', 'url' => BASE_URL . 'modules/departamento/solicitudes-rechazadas.php']
-            ]
+            'badge' => null
+            
         ],
         [
             'label' => 'Estudiantes',
@@ -108,11 +104,7 @@ $menusByRole = [
             'icon' => 'fas fa-flask',
             'url' => BASE_URL . 'modules/departamento/laboratorios.php',
             'badge' => null,
-            'submenu' => [
-                ['label' => 'Gestionar', 'url' => BASE_URL . 'modules/departamento/laboratorios.php'],
-                ['label' => 'Jefes', 'url' => BASE_URL . 'modules/departamento/jefes-laboratorio.php'],
-                ['label' => 'Proyectos', 'url' => BASE_URL . 'modules/departamento/proyectos.php']
-            ]
+           
         ],
         [
             'label' => 'Reportes',
@@ -301,6 +293,14 @@ function hasActiveSubmenu($submenu, $currentPath) {
     
     <!-- Sidebar Footer -->
     <div class="sidebar-footer">
+        <div class="footer-actions">
+            <a href="<?= BASE_URL ?>config/configuracion.php" class="footer-action" title="Configuración">
+                <i class="fas fa-cog"></i>
+            </a>
+            <a href="<?= BASE_URL ?>auth/logout.php" class="footer-action logout" title="Cerrar Sesión">
+                <i class="fas fa-sign-out-alt"></i>
+            </a>
+        </div>
         <div class="footer-info">
             <div class="app-version">
                 <span>ITA Social v<?= defined('APP_VERSION') ? APP_VERSION : '1.0.0' ?></span>
@@ -308,8 +308,6 @@ function hasActiveSubmenu($submenu, $currentPath) {
         </div>
     </div>
 </aside>
-
-<!-- El resto del código CSS y JavaScript permanece igual -->
 
 <style>
 /* Sidebar Styles */
