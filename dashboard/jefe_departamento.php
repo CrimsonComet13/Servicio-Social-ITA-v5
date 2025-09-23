@@ -530,10 +530,7 @@ include '../includes/sidebar.php';
                         </a>
                     </div>
                 </div>
-            </div>
-
-   
-            
+            </div>         
 
             <!-- Department Summary Widget - ACTUALIZADO -->
             <div class="widget">

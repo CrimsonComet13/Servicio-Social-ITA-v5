@@ -156,9 +156,7 @@ include '../../includes/sidebar.php';
                 <p>No puedes crear una nueva solicitud hasta que la actual sea procesada.</p>
             </div>
             <div class="status-actions">
-                <a href="/modules/estudiantes/solicitud.php?id=<?= $solicitudActiva['id'] ?>" class="btn btn-primary">
-                    <i class="fas fa-eye"></i> Ver Solicitud Actual
-                </a>
+                
                 <a href="/dashboard/estudiante.php" class="btn btn-secondary">
                     <i class="fas fa-arrow-left"></i> Volver al Dashboard
                 </a>
@@ -286,7 +284,7 @@ include '../../includes/sidebar.php';
                             <i class="fas fa-paper-plane"></i>
                             Enviar Solicitud
                         </button>
-                        <a href="../../dashboard/estudiante.php" class="btn btn-secondary btn-lg">
+                        <a href="/servicio_social_ita/dashboard/estudiante.php" class="btn btn-secondary btn-lg">
                             <i class="fas fa-times"></i>
                             Cancelar
                         </a>

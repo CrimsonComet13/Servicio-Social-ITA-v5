@@ -150,7 +150,7 @@ include '../includes/sidebar.php';
     <div class="dashboard-header">
         <div class="welcome-section">
             <h1 class="welcome-title">
-                <span class="welcome-text">¡Hola, <?= htmlspecialchars(explode(' ', $estudiante['nombre'])[0]) ?>!</span>
+                <span class="welcome-text">¡Hola, <?= htmlspecialchars(explode(' ', ($estudiante['nombre']?? 'Usuario'))[0]) ?>!</span>
                 <span class="welcome-emoji">👋</span>
             </h1>
             <p class="welcome-subtitle">Bienvenido a tu panel de control de servicio social</p>
@@ -183,8 +183,8 @@ include '../includes/sidebar.php';
                     </div>
                     <?php if ($solicitudActiva): ?>
                     <div class="service-project-info">
-                        <div class="service-project-name"><?= htmlspecialchars($solicitudActiva['nombre_proyecto']) ?></div>
-                        <div class="service-project-lab"><?= htmlspecialchars($solicitudActiva['laboratorio']) ?></div>
+                        <div class="service-project-name"><?=htmlspecialchars($solicitudActiva['nombre_proyecto'] ?? 'Sin proyecto') ?></div>
+                        <div class="service-project-lab"><?= htmlspecialchars($solicitudActiva['laboratorio'] ?? 'Sin laboratorio') ?></div>
                     </div>
                     <?php else: ?>
                     <div class="service-project-info">
@@ -297,8 +297,8 @@ include '../includes/sidebar.php';
                         <h3>Solicitud en Revisión</h3>
                         <p>Tu solicitud está siendo revisada por el jefe de departamento.</p>
                         <div class="project-info">
-                            <p><strong>Proyecto:</strong> <?= htmlspecialchars($solicitudActiva['nombre_proyecto']) ?></p>
-                            <p><strong>Laboratorio:</strong> <?= htmlspecialchars($solicitudActiva['laboratorio']) ?></p>
+                            <p><strong>Proyecto:</strong> <?= htmlspecialchars($solicitudActiva['nombre_proyecto'] ?? 'Sin proyecto') ?></p>
+                            <p><strong>Laboratorio:</strong> <?= htmlspecialchars($solicitudActiva['laboratorio'] ?? 'Sin laboratorio') ?></p>
                         </div>
                     </div>
                     <div class="status-actions">
@@ -317,16 +317,16 @@ include '../includes/sidebar.php';
                         <h3>¡Solicitud Aprobada!</h3>
                         <p>Tu solicitud ha sido aprobada. Ya puedes comenzar con tu servicio social.</p>
                         <div class="project-info">
-                            <p><strong>Proyecto:</strong> <?= htmlspecialchars($solicitudActiva['nombre_proyecto']) ?></p>
-                            <p><strong>Laboratorio:</strong> <?= htmlspecialchars($solicitudActiva['laboratorio']) ?></p>
-                            <p><strong>Supervisor:</strong> <?= htmlspecialchars($solicitudActiva['jefe_lab_nombre']) ?></p>
+                            <p><strong>Proyecto:</strong><?= htmlspecialchars($solicitudActiva['nombre_proyecto'] ?? 'Sin proyecto') ?></p>
+                            <p><strong>Laboratorio:</strong><?= htmlspecialchars($solicitudActiva['laboratorio'] ?? 'Sin laboratorio') ?></p>
+                            <p><strong>Supervisor:</strong><?= htmlspecialchars($solicitudActiva['jefe_lab_nombre'] ?? 'Sin asignar') ?></p>
                         </div>
                     </div>
                     <div class="status-actions">
-                        <a href="../modules/estudiantes/documentos.php" class="btn btn-primary">
+                        <a href="/servicio_social_ita/modules/estudiantes/documentos.php" class="btn btn-primary">
                             Descargar Oficio
                         </a>
-                        <a href="../modules/estudiantes/reportes.php" class="btn btn-secondary">
+                        <a href="/servicio_social_ita/modules/estudiantes/reportes.php" class="btn btn-secondary">
                             Comenzar
                         </a>
                     </div>
@@ -359,10 +359,10 @@ include '../includes/sidebar.php';
                         </div>
                     </div>
                     <div class="status-actions">
-                        <a href="../modules/estudiantes/reportes.php" class="btn btn-primary">
+                        <a href="/servicio_social_ita/modules/estudiantes/reportes.php" class="btn btn-primary">
                             <?= !empty($reportesPendientes) ? 'Entregar Reportes' : 'Gestionar Reportes' ?>
                         </a>
-                        <a href="../modules/estudiantes/horas.php" class="btn btn-secondary">
+                        <a href=/servicio_social_ita/modules/estudiantes/horas.php" class="btn btn-secondary">
                             Registrar Horas
                         </a>
                     </div>
@@ -377,7 +377,7 @@ include '../includes/sidebar.php';
                         <i class="fas fa-history"></i>
                         Actividades Recientes
                     </h2>
-                    <a href="../modules/estudiantes/actividades.php" class="section-link">Ver todas</a>
+                    <a href="/servicio_social_ita/modules/estudiantes/actividades.php" class="section-link">Ver todas</a>
                 </div>
 
                 <div class="activities-list">
@@ -459,7 +459,7 @@ include '../includes/sidebar.php';
                         <i class="fas fa-file-download"></i>
                         Documentos Recientes
                     </h3>
-                    <a href="../modules/estudiantes/documentos.php" class="widget-link">Ver todos</a>
+                    <a href="/servicio_social_ita/modules/estudiantes/documentos.php" class="widget-link">Ver todos</a>
                 </div>
                 <div class="widget-content">
                     <div class="documents-list">
@@ -498,7 +498,7 @@ include '../includes/sidebar.php';
                 </div>
                 <div class="widget-content">
                     <div class="quick-actions">
-                        <a href="../modules/estudiantes/perfil.php" class="quick-action">
+                        <a href="/servicio_social_ita/modules/estudiantes/perfil.php" class="quick-action">
                             <div class="action-icon">
                                 <i class="fas fa-user"></i>
                             </div>
@@ -508,7 +508,7 @@ include '../includes/sidebar.php';
                             </div>
                         </a>
                         
-                        <a href="../modules/estudiantes/solicitud.php" class="quick-action">
+                        <a href="/servicio_social_ita/modules/estudiantes/solicitud.php" class="quick-action">
                             <div class="action-icon">
                                 <i class="fas fa-paper-plane"></i>
                             </div>
