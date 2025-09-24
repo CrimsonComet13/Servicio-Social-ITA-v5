@@ -157,7 +157,7 @@ include '../../includes/sidebar.php';
             </div>
             <div class="status-actions">
                 
-                <a href="/dashboard/estudiante.php" class="btn btn-secondary">
+                <a href="/servicio_social_ita/dashboard/estudiante.php" class="btn btn-secondary">
                     <i class="fas fa-arrow-left"></i> Volver al Dashboard
                 </a>
             </div>

@@ -88,14 +88,7 @@ function getSafeUserDisplayEmail($usuario) {
                     <span class="brand-subtitle">Sistema de Servicio Social</span>
                 </div>
             </div>
-            
-            <!-- Search Bar (opcional, para futuras funcionalidades) -->
-            <div class="header-search">
-                <div class="search-container">
-                    <i class="fas fa-search search-icon"></i>
-                    <input type="text" placeholder="Buscar..." class="search-input" id="globalSearch">
-                </div>
-            </div>
+
             
             <!-- Notifications y User -->
             <div class="header-actions">

@@ -299,14 +299,7 @@ function hasActiveSubmenu($submenu, $currentPath) {
     
     <!-- Sidebar Footer -->
     <div class="sidebar-footer">
-        <div class="footer-actions">
-            <a href="<?= BASE_URL ?>config/configuracion.php" class="footer-action" title="Configuración">
-                <i class="fas fa-cog"></i>
-            </a>
-            <a href="<?= BASE_URL ?>auth/logout.php" class="footer-action logout" title="Cerrar Sesión">
-                <i class="fas fa-sign-out-alt"></i>
-            </a>
-        </div>
+
         <div class="footer-info">
             <div class="app-version">
                 <span>ITA Social v<?= defined('APP_VERSION') ? APP_VERSION : '1.0.0' ?></span>

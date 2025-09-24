@@ -4,10 +4,40 @@
  */
 
 class LogoutManager {
-    constructor() {
-        this.logoutUrl = './auth/logout.php';
+    constructor(options = {}) {
+        // Detectar automáticamente la ruta correcta al logout.php
+        this.logoutUrl = this.detectLogoutUrl(options.logoutUrl);
         this.isLoggingOut = false;
         this.init();
+    }
+    
+    /**
+     * Detectar la ruta correcta al logout.php basado en la ubicación actual
+     */
+    detectLogoutUrl(customUrl) {
+        if (customUrl) {
+            return customUrl;
+        }
+        
+        const currentPath = window.location.pathname;
+        
+        // Si estamos en los dashboards (/dashboard/*)
+        if (currentPath.includes('/dashboard/')) {
+            return '../auth/logout.php';
+        }
+        
+        // Si estamos en modules (modules/*)
+        if (currentPath.includes('/modules/')) {
+            return '../auth/logout.php';
+        }
+        
+        // Si estamos en auth (/auth/*)
+        if (currentPath.includes('/auth/')) {
+            return './logout.php';
+        }
+        
+        // Si estamos en la raíz del proyecto
+        return './auth/logout.php';
     }
 
     init() {
@@ -289,24 +319,86 @@ class LogoutManager {
             const data = await response.json();
             
             if (data.success || data.redirect) {
-                // Limpiar datos locales
+                // Limpiar datos locales antes de redireccionar
                 this.clearLocalData();
                 
-                // Redirigir
-                window.location.href = data.redirect || './auth/logout-success.php?logout=success';
+                // Determinar URL de redirección
+                let redirectUrl = this.getRedirectUrl(data.redirect);
+                
+                // Pequeño delay para permitir que se complete la limpieza
+                setTimeout(() => {
+                    window.location.href = redirectUrl;
+                }, 100);
+                
             } else {
                 console.error('Error en logout:', data.message);
-                // Redirigir a página de error
-                window.location.href = './auth/logout-success.php?logout=error';
+                // En caso de error, redirigir directamente
+                this.forceRedirect();
             }
             
         } catch (error) {
             console.error('Error crítico en logout:', error);
             // Logout de emergencia - redireccionar directamente
-            window.location.href = `${this.logoutUrl}?action=emergency`;
+            this.forceRedirect(true);
         } finally {
-            this.isLoggingOut = false;
+            // Reset del estado después de un tiempo
+            setTimeout(() => {
+                this.isLoggingOut = false;
+            }, 2000);
         }
+    }
+    
+    /**
+     * Obtener URL de redirección correcta
+     */
+    getRedirectUrl(serverRedirect) {
+        const currentPath = window.location.pathname;
+        
+        // Si el servidor devolvió una URL específica, usarla
+        if (serverRedirect) {
+            // Si es una URL relativa, ajustarla según la ubicación actual
+            if (serverRedirect.startsWith('../')) {
+                return serverRedirect;
+            } else if (serverRedirect.startsWith('./')) {
+                // Convertir ruta relativa según ubicación actual
+                if (currentPath.includes('/dashboard/') || currentPath.includes('/modules/')) {
+                    return serverRedirect.replace('./', '../');
+                }
+                return serverRedirect;
+            }
+            return serverRedirect;
+        }
+        
+        // URLs por defecto según ubicación
+        if (currentPath.includes('/dashboard/') || currentPath.includes('/modules/')) {
+            return '../index.php';
+        } else if (currentPath.includes('/auth/')) {
+            return '../index.php';
+        }
+        
+        return './index.php';
+    }
+    
+    /**
+     * Forzar redirección en caso de emergencia
+     */
+    forceRedirect(emergency = false) {
+        const currentPath = window.location.pathname;
+        let redirectUrl;
+        
+        if (emergency) {
+            // Logout de emergencia directo con query param
+            if (currentPath.includes('/dashboard/') || currentPath.includes('/modules/')) {
+                redirectUrl = `${this.logoutUrl}?action=emergency`;
+            } else {
+                redirectUrl = `./auth/logout.php?action=emergency`;
+            }
+        } else {
+            // Redirección normal a index
+            redirectUrl = this.getRedirectUrl();
+        }
+        
+        window.location.href = redirectUrl;
     }
 
     /**
@@ -375,9 +467,23 @@ class LogoutManager {
     }
 }
 
-// Inicializar automáticamente cuando el DOM esté listo
+// Inicializar automáticamente cuando el DOM esté listo con configuración dinámica
 document.addEventListener('DOMContentLoaded', function() {
-    window.logoutManager = new LogoutManager();
+    // Configuración específica según la página
+    const currentPath = window.location.pathname;
+    const config = {};
+    
+    // Configurar según ubicación si es necesario
+    if (currentPath.includes('/dashboard/')) {
+        config.logoutUrl = '../auth/logout.php';
+    } else if (currentPath.includes('/modules/')) {
+        config.logoutUrl = '../auth/logout.php';
+    }
+    
+    window.logoutManager = new LogoutManager(config);
+    
+    // Agregar mensaje de debug en desarrollo
+    console.log('LogoutManager inicializado con URL:', window.logoutManager.logoutUrl);
 });
 
 // Función global para logout manual
