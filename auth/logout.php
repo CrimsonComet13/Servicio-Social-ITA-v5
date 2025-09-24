@@ -1,92 +1,136 @@
 <?php
 /**
- * Logout System - Versión simplificada y mejorada
- * Sistema de cierre de sesión consistente con rutas relativas
+ * Logout System para SERVICIO_SOCIAL_ITA
+ * Versión específica para la estructura del proyecto
  */
 
-require_once '../config/config.php';
-require_once '../config/session.php';
-require_once '../config/functions.php';
+// Limpiar cualquier output previo
+while (ob_get_level()) {
+    ob_end_clean();
+}
 
-// Configuración de errores
+// Configuración básica
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
 ini_set('log_errors', 1);
 
-// Limpiar output buffer
-if (ob_get_level()) {
-    ob_end_clean();
+// Log del inicio del proceso
+error_log("=== LOGOUT.PHP INICIADO ===");
+error_log("Request Method: " . $_SERVER['REQUEST_METHOD']);
+error_log("Request URI: " . $_SERVER['REQUEST_URI']);
+error_log("User Agent: " . ($_SERVER['HTTP_USER_AGENT'] ?? 'Unknown'));
+
+// Incluir archivos de configuración de manera segura
+$configPaths = [
+    '../config/config.php',
+    '../config/session.php',
+    '../config/functions.php',
+    './config/config.php',    // Por si acaso está en el mismo nivel
+    './config/session.php',
+    './config/functions.php'
+];
+
+$configsLoaded = 0;
+foreach ($configPaths as $configFile) {
+    if (file_exists($configFile)) {
+        try {
+            require_once $configFile;
+            $configsLoaded++;
+            error_log("Config loaded: $configFile");
+        } catch (Exception $e) {
+            error_log("Error loading $configFile: " . $e->getMessage());
+        }
+    }
 }
 
-/**
- * Función para detectar requests AJAX
- */
-function isAjaxRequest() {
-    return !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && 
-           strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
-}
+error_log("Configs loaded: $configsLoaded");
 
 /**
- * Función para enviar respuesta JSON limpia
+ * Función simple de redirección con múltiples fallbacks
  */
-function sendJsonResponse($data) {
-    if (!headers_sent()) {
-        header('Content-Type: application/json; charset=utf-8');
-        header('Cache-Control: no-cache, must-revalidate');
-        header('Pragma: no-cache');
+function redirectToIndex($type = 'success') {
+    $redirectUrl = '../index.php?logout=' . urlencode($type);
+    
+    error_log("Redirecting to: $redirectUrl");
+    
+    // Limpiar output buffer
+    while (ob_get_level()) {
+        ob_end_clean();
     }
     
-    echo json_encode($data, JSON_UNESCAPED_UNICODE);
-    exit;
-}
-
-/**
- * Función para redireccionar con rutas relativas consistentes
- */
-function redirectTo($location, $params = []) {
+    // Método 1: Headers PHP
     if (!headers_sent()) {
-        $url = $location;
-        if (!empty($params)) {
-            $url .= '?' . http_build_query($params);
-        }
-        header("Location: $url");
+        header("Location: $redirectUrl");
+        header("Cache-Control: no-cache, must-revalidate");
+        header("Pragma: no-cache");
+        header("Expires: Mon, 26 Jul 1997 05:00:00 GMT");
         exit;
     }
+    
+    // Método 2: JavaScript redirect si headers ya fueron enviados
+    echo "<!DOCTYPE html><html><head><title>Redirecting...</title></head><body>";
+    echo "<script>window.location.replace('$redirectUrl');</script>";
+    echo "<meta http-equiv='refresh' content='0;url=$redirectUrl'>";
+    echo "<p>Redirecting... <a href='$redirectUrl'>Click here if not redirected automatically</a></p>";
+    echo "</body></html>";
+    exit;
 }
 
 /**
  * Función principal de logout
  */
 function performLogout() {
-    $success = true;
+    error_log("Starting logout process");
+    
     $errors = [];
+    $success = true;
     
     try {
-        // 1. Obtener instancia de SecureSession y cerrar sesión
-        $session = SecureSession::getInstance();
-        
-        if ($session->isLoggedIn()) {
-            $userId = $session->getUserId();
-            $userRole = $session->getUserRole();
-            
-            // Registrar logout en log de actividades si es posible
+        // 1. Manejar SecureSession si existe la clase
+        if (class_exists('SecureSession')) {
             try {
-                if (function_exists('logActivity') && $userId) {
-                    logActivity($userId, 'logout', 'auth');
+                error_log("Attempting SecureSession logout");
+                $session = SecureSession::getInstance();
+                
+                if (method_exists($session, 'isLoggedIn') && $session->isLoggedIn()) {
+                    $userId = method_exists($session, 'getUserId') ? $session->getUserId() : 'unknown';
+                    error_log("Logging out user: $userId");
+                    
+                    // Intentar log de actividad si existe
+                    if (function_exists('logActivity') && $userId !== 'unknown') {
+                        try {
+                            logActivity($userId, 'logout', 'Sistema de logout');
+                        } catch (Exception $logError) {
+                            error_log("Log activity error: " . $logError->getMessage());
+                        }
+                    }
+                    
+                    if (method_exists($session, 'destroy')) {
+                        $session->destroy();
+                        error_log("SecureSession destroyed successfully");
+                    }
                 }
-            } catch (Exception $e) {
-                // No es crítico si falla el logging
-                error_log("Error logging logout activity: " . $e->getMessage());
+            } catch (Exception $secureSessionError) {
+                error_log("SecureSession error: " . $secureSessionError->getMessage());
+                $errors[] = "SecureSession error: " . $secureSessionError->getMessage();
             }
-            
-            // Destruir sesión segura
-            $session->destroy();
+        } else {
+            error_log("SecureSession class not available");
         }
         
-        // 2. Limpiar sesión PHP nativa como respaldo
+        // 2. Limpiar sesión PHP estándar
+        error_log("Starting standard PHP session cleanup");
+        
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }
+        
+        $sessionId = session_id();
+        error_log("Current session ID: $sessionId");
+        
+        // Guardar información antes de limpiar
+        $userInfo = $_SESSION['user_id'] ?? 'unknown';
+        error_log("Clearing session for user: $userInfo");
         
         // Limpiar variables de sesión
         $_SESSION = array();
@@ -94,45 +138,71 @@ function performLogout() {
         // Destruir cookie de sesión
         if (ini_get("session.use_cookies")) {
             $params = session_get_cookie_params();
-            setcookie(
+            
+            $cookieCleared = setcookie(
                 session_name(), 
                 '', 
                 time() - 42000,
-                $params["path"], 
-                $params["domain"],
-                $params["secure"], 
-                $params["httponly"]
+                $params["path"] ?? '/', 
+                $params["domain"] ?? '',
+                $params["secure"] ?? false, 
+                $params["httponly"] ?? true
             );
+            
+            error_log("Session cookie cleared: " . ($cookieCleared ? 'yes' : 'no'));
         }
         
         // Destruir sesión
-        if (session_status() === PHP_SESSION_ACTIVE) {
-            session_destroy();
+        if (session_destroy()) {
+            error_log("PHP session destroyed successfully");
+        } else {
+            error_log("Failed to destroy PHP session");
+            $errors[] = "Failed to destroy PHP session";
         }
         
-        // 3. Limpiar cookies adicionales del sistema
+        // 3. Limpiar cookies del sistema específico
         $systemCookies = [
-            'remember_token', 
+            'remember_token',
             'user_session', 
             'ita_social_session',
             'auth_token',
-            'user_preferences'
+            'user_preferences',
+            'servicio_social_token',
+            'student_auth',
+            'dashboard_settings'
         ];
         
+        $cookiesCleared = 0;
         foreach ($systemCookies as $cookieName) {
             if (isset($_COOKIE[$cookieName])) {
-                // Limpiar cookie en diferentes paths
-                $paths = ['/', '/dashboard/', '/auth/', '/modules/'];
+                // Limpiar en múltiples paths para asegurar eliminación
+                $paths = ['/', '/SERVICIO_SOCIAL_ITA/', '/dashboard/', '/auth/', '/modules/', '/includes/'];
+                
                 foreach ($paths as $path) {
                     setcookie($cookieName, '', time() - 3600, $path);
+                    setcookie($cookieName, '', time() - 3600, $path, $_SERVER['HTTP_HOST']);
                 }
+                
+                unset($_COOKIE[$cookieName]);
+                $cookiesCleared++;
             }
         }
+        
+        error_log("System cookies cleared: $cookiesCleared");
+        
+        // 4. Limpieza adicional de headers de caché
+        if (!headers_sent()) {
+            header("Cache-Control: no-cache, no-store, must-revalidate");
+            header("Pragma: no-cache");
+            header("Expires: 0");
+        }
+        
+        error_log("Logout process completed successfully");
         
     } catch (Exception $e) {
         $success = false;
         $errors[] = $e->getMessage();
-        error_log("Error en logout: " . $e->getMessage());
+        error_log("Critical logout error: " . $e->getMessage());
     }
     
     return [
@@ -141,138 +211,134 @@ function performLogout() {
     ];
 }
 
-// ============================================================================
+// ====================================================================
 // PROCESAMIENTO PRINCIPAL
-// ============================================================================
+// ====================================================================
 
 try {
-    // Manejar requests AJAX
-    if (isAjaxRequest()) {
-        
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $action = $_POST['action'] ?? '';
-            
-            if ($action === 'logout' || $action === 'confirm_logout') {
-                $result = performLogout();
-                
-                sendJsonResponse([
-                    'success' => $result['success'],
-                    'message' => $result['success'] 
-                        ? 'Sesión cerrada correctamente' 
-                        : 'Error durante el logout',
-                    'redirect' => '../index.php',
-                    'errors' => $result['errors']
-                ]);
-            }
-        } 
-        
-        // GET AJAX requests
-        elseif ($_SERVER['REQUEST_METHOD'] === 'GET') {
-            $action = $_GET['action'] ?? '';
-            
-            switch ($action) {
-                case 'check':
-                    // Verificar estado de sesión
-                    $session = SecureSession::getInstance();
-                    sendJsonResponse([
-                        'logged_in' => $session->isLoggedIn(),
-                        'message' => 'Estado de sesión verificado'
-                    ]);
-                    break;
-                    
-                case 'force':
-                case 'emergency':
-                    // Logout forzado
-                    $result = performLogout();
-                    sendJsonResponse([
-                        'success' => true,
-                        'message' => 'Logout forzado completado',
-                        'redirect' => '../index.php'
-                    ]);
-                    break;
-                    
-                default:
-                    // Logout AJAX normal
-                    $result = performLogout();
-                    sendJsonResponse([
-                        'success' => $result['success'],
-                        'message' => $result['success'] 
-                            ? 'Sesión cerrada correctamente' 
-                            : 'Error durante el logout',
-                        'redirect' => '../index.php'
-                    ]);
-            }
-        }
-    }
+    // Obtener parámetros
+    $action = $_GET['action'] ?? $_POST['action'] ?? 'logout';
     
-    // Manejar requests normales (no AJAX)
-    else {
-        $action = $_GET['action'] ?? '';
-        
-        // Procesar diferentes tipos de logout
-        switch ($action) {
-            case 'force':
-            case 'emergency':
-                // Logout forzado - limpiar todo agresivamente
-                try {
+    error_log("Processing action: $action");
+    
+    // Procesar según el tipo de logout
+    switch ($action) {
+        case 'force':
+        case 'emergency':
+            error_log("Processing emergency/force logout");
+            
+            // Logout de emergencia - más agresivo
+            try {
+                // Forzar inicio de sesión si no está activa
+                if (session_status() !== PHP_SESSION_ACTIVE) {
                     @session_start();
-                    $_SESSION = array();
-                    @session_destroy();
-                    
-                    // Limpiar cookies del sistema
-                    if (isset($_SERVER['HTTP_COOKIE'])) {
-                        $cookies = explode(';', $_SERVER['HTTP_COOKIE']);
-                        foreach($cookies as $cookie) {
-                            $parts = explode('=', $cookie);
-                            $name = trim($parts[0]);
-                            setcookie($name, '', time() - 3600, '/');
+                }
+                
+                // Limpiar todo
+                $_SESSION = array();
+                
+                // Destruir sesión agresivamente
+                @session_destroy();
+                
+                // Limpiar cookies de manera agresiva
+                if (isset($_SERVER['HTTP_COOKIE'])) {
+                    $cookies = explode(';', $_SERVER['HTTP_COOKIE']);
+                    foreach ($cookies as $cookie) {
+                        $parts = explode('=', $cookie);
+                        $name = trim($parts[0]);
+                        if ($name) {
+                            // Limpiar en múltiples paths
+                            $paths = ['/', '/SERVICIO_SOCIAL_ITA/', '/dashboard/', '/auth/', '/modules/'];
+                            foreach ($paths as $path) {
+                                setcookie($name, '', time() - 3600, $path);
+                            }
                         }
                     }
-                } catch (Exception $e) {
-                    error_log("Error en logout forzado: " . $e->getMessage());
                 }
                 
-                redirectTo('../index.php', ['logout' => 'forced']);
-                break;
+                error_log("Emergency logout completed");
                 
-            default:
-                // Logout normal
-                $result = performLogout();
-                
-                if ($result['success']) {
-                    redirectTo('../index.php', ['logout' => 'success']);
+            } catch (Exception $emergencyError) {
+                error_log("Emergency logout error: " . $emergencyError->getMessage());
+            }
+            
+            // Redireccionar con mensaje de logout forzado
+            redirectToIndex('forced');
+            break;
+            
+        case 'check':
+            // Verificar estado de sesión (para AJAX)
+            $isLoggedIn = false;
+            
+            try {
+                if (class_exists('SecureSession')) {
+                    $session = SecureSession::getInstance();
+                    $isLoggedIn = method_exists($session, 'isLoggedIn') ? $session->isLoggedIn() : false;
                 } else {
-                    redirectTo('../index.php', ['logout' => 'error']);
+                    // Fallback: verificar sesión PHP estándar
+                    if (session_status() === PHP_SESSION_NONE) {
+                        session_start();
+                    }
+                    $isLoggedIn = !empty($_SESSION['user_id']);
                 }
-        }
+            } catch (Exception $checkError) {
+                error_log("Session check error: " . $checkError->getMessage());
+                $isLoggedIn = false;
+            }
+            
+            header('Content-Type: application/json');
+            echo json_encode([
+                'logged_in' => $isLoggedIn,
+                'message' => 'Session status checked'
+            ]);
+            exit;
+            
+        case 'logout':
+        case 'confirm_logout':
+        default:
+            error_log("Processing normal logout");
+            
+            // Logout normal
+            $result = performLogout();
+            
+            if ($result['success']) {
+                redirectToIndex('success');
+            } else {
+                error_log("Logout failed with errors: " . implode(', ', $result['errors']));
+                redirectToIndex('error');
+            }
+            break;
     }
     
-} catch (Exception $e) {
-    error_log("Error crítico en logout: " . $e->getMessage());
+} catch (Exception $criticalError) {
+    error_log("CRITICAL ERROR in logout.php: " . $criticalError->getMessage());
     
-    if (isAjaxRequest()) {
-        sendJsonResponse([
-            'success' => false,
-            'message' => 'Error crítico durante el logout',
-            'redirect' => '../index.php',
-            'error' => $e->getMessage()
-        ]);
-    } else {
-        // Logout de emergencia y redirección
-        try {
+    // Cleanup de emergencia absoluta
+    try {
+        if (session_status() !== PHP_SESSION_ACTIVE) {
             @session_start();
-            $_SESSION = array();
-            @session_destroy();
-        } catch (Exception $sessionError) {
-            error_log("Error en cleanup de emergencia: " . $sessionError->getMessage());
+        }
+        $_SESSION = array();
+        @session_destroy();
+        
+        // Limpiar cookies críticas
+        $criticalCookies = ['PHPSESSID', 'user_session', 'auth_token'];
+        foreach ($criticalCookies as $cookie) {
+            if (isset($_COOKIE[$cookie])) {
+                setcookie($cookie, '', time() - 3600, '/');
+            }
         }
         
-        redirectTo('../index.php', ['logout' => 'error']);
+    } catch (Exception $finalError) {
+        error_log("Final cleanup error: " . $finalError->getMessage());
     }
+    
+    // Redirección de emergencia final
+    redirectToIndex('error');
 }
 
-// Si llegamos aquí sin hacer exit, hay un problema
-error_log("WARNING: Llegamos al final de logout.php sin hacer exit");
-redirectTo('../index.php', ['logout' => 'fallback']);
+// Si llegamos aquí, algo salió muy mal
+error_log("WARNING: Reached end of logout.php without proper exit");
+redirectToIndex('fallback');
 
 ?>

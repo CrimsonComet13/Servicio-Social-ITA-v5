@@ -1,69 +1,97 @@
 /**
- * Sistema de Logout Frontend
- * Script para manejar logout desde JavaScript de manera consistente
+ * Sistema de Logout con Rutas Absolutas - SERVICIO_SOCIAL_ITA
+ * Versión que usa rutas absolutas para evitar problemas de resolución
  */
 
-class LogoutManager {
-    constructor(options = {}) {
-        // Detectar automáticamente la ruta correcta al logout.php
-        this.logoutUrl = this.detectLogoutUrl(options.logoutUrl);
-        this.isLoggingOut = false;
+class SimpleLogoutManager {
+    constructor() {
+        this.projectName = 'servicio_social_ita'; // Nombre de tu proyecto
         this.init();
-    }
-    
-    /**
-     * Detectar la ruta correcta al logout.php basado en la ubicación actual
-     */
-    detectLogoutUrl(customUrl) {
-        if (customUrl) {
-            return customUrl;
-        }
-        
-        const currentPath = window.location.pathname;
-        
-        // Si estamos en los dashboards (/dashboard/*)
-        if (currentPath.includes('/dashboard/')) {
-            return '../auth/logout.php';
-        }
-        
-        // Si estamos en modules (modules/*)
-        if (currentPath.includes('/modules/')) {
-            return '../auth/logout.php';
-        }
-        
-        // Si estamos en auth (/auth/*)
-        if (currentPath.includes('/auth/')) {
-            return './logout.php';
-        }
-        
-        // Si estamos en la raíz del proyecto
-        return './auth/logout.php';
     }
 
     init() {
-        // Detectar elementos de logout automáticamente
+        console.log('=== LOGOUT MANAGER CON RUTAS ABSOLUTAS ===');
+        console.log('Current URL:', window.location.href);
+        console.log('Current pathname:', window.location.pathname);
         this.attachLogoutListeners();
-        
-        // Manejar confirmaciones de logout
         this.setupConfirmationModal();
     }
 
     /**
-     * Adjuntar listeners a elementos de logout
+     * Calcular la URL ABSOLUTA del logout.php
+     */
+    getLogoutUrl() {
+        const protocol = window.location.protocol;
+        const host = window.location.host;
+        const currentPath = window.location.pathname;
+        
+        console.log('Calculating absolute logout URL...');
+        console.log('Protocol:', protocol);
+        console.log('Host:', host);
+        console.log('Current path:', currentPath);
+        
+        // Construir la URL absoluta al logout.php
+        let logoutUrl = `${protocol}//${host}/${this.projectName}/auth/logout.php`;
+        
+        console.log('✅ Calculated ABSOLUTE logout URL:', logoutUrl);
+        return logoutUrl;
+    }
+
+    /**
+     * Calcular la URL ABSOLUTA del index.php para redirección
+     */
+    getIndexUrl() {
+        const protocol = window.location.protocol;
+        const host = window.location.host;
+        
+        let indexUrl = `${protocol}//${host}/${this.projectName}/index.php`;
+        
+        console.log('✅ Calculated ABSOLUTE index URL:', indexUrl);
+        return indexUrl;
+    }
+
+    /**
+     * Adjuntar listeners a todos los botones de logout
      */
     attachLogoutListeners() {
-        // Buscar todos los elementos con clase 'logout-btn' o 'btn-logout'
-        const logoutButtons = document.querySelectorAll('.logout-btn, .btn-logout, [data-action="logout"]');
+        const selectors = [
+            '.logout-btn', 
+            '.btn-logout', 
+            '[data-action="logout"]', 
+            '.logout-link',
+            'a[href*="logout"]',
+            'button[onclick*="logout"]'
+        ];
         
-        logoutButtons.forEach(button => {
+        const logoutButtons = document.querySelectorAll(selectors.join(', '));
+        
+        console.log('🔍 Found logout elements:', logoutButtons.length);
+        logoutButtons.forEach((btn, index) => {
+            console.log(`  ${index + 1}. ${btn.tagName} with classes:`, btn.className, 'text:', btn.textContent.trim());
+        });
+        
+        if (logoutButtons.length === 0) {
+            console.warn('⚠️ No logout buttons found! Make sure your buttons have the correct classes:');
+            console.warn('   .logout-btn, .btn-logout, [data-action="logout"], or .logout-link');
+        }
+        
+        logoutButtons.forEach((button, index) => {
             button.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 
-                const confirmRequired = button.dataset.confirm !== 'false';
+                console.log(`🖱️ Logout button ${index + 1} clicked`);
                 
-                if (confirmRequired) {
+                // Verificar si necesita confirmación
+                const needsConfirmation = button.dataset.confirm !== 'false';
+                const useModal = button.dataset.modal !== 'false';
+                
+                console.log('Confirmation needed:', needsConfirmation, 'Use modal:', useModal);
+                
+                if (needsConfirmation && useModal) {
                     this.showConfirmationModal();
+                } else if (needsConfirmation) {
+                    this.showBrowserConfirm();
                 } else {
                     this.performLogout();
                 }
@@ -72,43 +100,60 @@ class LogoutManager {
     }
 
     /**
-     * Mostrar modal de confirmación
+     * Mostrar confirmación del navegador
+     */
+    showBrowserConfirm() {
+        console.log('🗨️ Showing browser confirm dialog');
+        if (confirm('¿Estás seguro de que deseas cerrar sesión?')) {
+            this.performLogout();
+        } else {
+            console.log('❌ User cancelled logout');
+        }
+    }
+
+    /**
+     * Crear y mostrar modal de confirmación personalizado
      */
     showConfirmationModal() {
-        // Crear modal dinámicamente si no existe
+        console.log('🗨️ Showing custom modal');
+        
+        // Crear modal si no existe
         if (!document.getElementById('logoutModal')) {
-            this.createConfirmationModal();
+            this.createModal();
         }
         
         const modal = document.getElementById('logoutModal');
         modal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
+        
+        // Focus en el botón de cancelar para accesibilidad
+        setTimeout(() => {
+            const cancelBtn = document.getElementById('cancelLogout');
+            if (cancelBtn) cancelBtn.focus();
+        }, 100);
     }
 
     /**
      * Crear modal de confirmación
      */
-    createConfirmationModal() {
+    createModal() {
         const modal = document.createElement('div');
         modal.id = 'logoutModal';
-        modal.className = 'logout-modal';
         modal.innerHTML = `
-            <div class="logout-modal-overlay"></div>
-            <div class="logout-modal-content">
-                <div class="logout-modal-header">
-                    <div class="logout-modal-icon">
-                        <i class="fas fa-sign-out-alt"></i>
+            <div class="logout-overlay" onclick="window.simpleLogout.hideModal()"></div>
+            <div class="logout-dialog">
+                <div class="logout-header">
+                    <div class="logout-icon">
+                        🚪
                     </div>
                     <h3>¿Cerrar Sesión?</h3>
-                    <p>¿Estás seguro de que deseas cerrar tu sesión?</p>
+                    <p>¿Estás seguro de que deseas cerrar tu sesión actual?</p>
                 </div>
-                <div class="logout-modal-actions">
-                    <button type="button" class="btn btn-secondary" id="cancelLogout">
-                        <i class="fas fa-times"></i>
+                <div class="logout-actions">
+                    <button type="button" id="cancelLogout" class="btn-cancel">
                         Cancelar
                     </button>
-                    <button type="button" class="btn btn-danger" id="confirmLogout">
-                        <i class="fas fa-sign-out-alt"></i>
+                    <button type="button" id="confirmLogout" class="btn-confirm">
                         Cerrar Sesión
                     </button>
                 </div>
@@ -118,7 +163,7 @@ class LogoutManager {
         // Agregar estilos
         const style = document.createElement('style');
         style.textContent = `
-            .logout-modal {
+            #logoutModal {
                 position: fixed;
                 top: 0;
                 left: 0;
@@ -128,37 +173,37 @@ class LogoutManager {
                 display: none;
                 align-items: center;
                 justify-content: center;
-                animation: fadeIn 0.3s ease-out;
+                animation: fadeIn 0.2s ease-out;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             }
             
-            .logout-modal-overlay {
+            .logout-overlay {
                 position: absolute;
                 top: 0;
                 left: 0;
                 right: 0;
                 bottom: 0;
-                background: rgba(0, 0, 0, 0.5);
+                background: rgba(0, 0, 0, 0.6);
                 backdrop-filter: blur(4px);
             }
             
-            .logout-modal-content {
+            .logout-dialog {
                 position: relative;
                 background: white;
-                border-radius: 16px;
+                border-radius: 12px;
                 padding: 2rem;
                 max-width: 400px;
                 width: 90%;
-                margin: 1rem;
-                box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-                animation: slideIn 0.3s ease-out;
-                text-align: center;
+                box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+                animation: slideUp 0.2s ease-out;
             }
             
-            .logout-modal-header {
+            .logout-header {
+                text-align: center;
                 margin-bottom: 2rem;
             }
             
-            .logout-modal-icon {
+            .logout-icon {
                 width: 60px;
                 height: 60px;
                 background: linear-gradient(135deg, #ef4444, #f87171);
@@ -168,54 +213,55 @@ class LogoutManager {
                 justify-content: center;
                 margin: 0 auto 1rem;
                 color: white;
-                font-size: 1.5rem;
+                font-size: 24px;
             }
             
-            .logout-modal-header h3 {
-                font-size: 1.5rem;
+            .logout-header h3 {
+                font-size: 1.25rem;
                 font-weight: 600;
                 color: #1f2937;
-                margin-bottom: 0.5rem;
+                margin: 0 0 0.5rem 0;
             }
             
-            .logout-modal-header p {
+            .logout-header p {
                 color: #6b7280;
-                font-size: 1rem;
+                margin: 0;
                 line-height: 1.5;
             }
             
-            .logout-modal-actions {
+            .logout-actions {
                 display: flex;
-                gap: 1rem;
-                justify-content: center;
+                gap: 0.75rem;
+                justify-content: flex-end;
             }
             
-            .logout-modal .btn {
-                padding: 0.75rem 1.5rem;
-                border-radius: 8px;
+            .logout-actions button {
+                padding: 0.75rem 1.25rem;
+                border-radius: 6px;
                 border: none;
                 font-weight: 500;
                 cursor: pointer;
-                transition: all 0.2s ease;
-                display: inline-flex;
-                align-items: center;
-                gap: 0.5rem;
-                font-size: 0.95rem;
+                transition: all 0.15s ease;
+                font-size: 0.875rem;
             }
             
-            .logout-modal .btn-secondary {
-                background: #6b7280;
+            .btn-cancel {
+                background: #f3f4f6;
+                color: #374151;
+            }
+            
+            .btn-cancel:hover {
+                background: #e5e7eb;
+            }
+            
+            .btn-confirm {
+                background: linear-gradient(135deg, #ef4444, #dc2626);
                 color: white;
             }
             
-            .logout-modal .btn-danger {
-                background: linear-gradient(135deg, #ef4444, #f87171);
-                color: white;
-            }
-            
-            .logout-modal .btn:hover {
+            .btn-confirm:hover {
+                background: linear-gradient(135deg, #dc2626, #b91c1c);
                 transform: translateY(-1px);
-                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
             }
             
             @keyframes fadeIn {
@@ -223,7 +269,7 @@ class LogoutManager {
                 to { opacity: 1; }
             }
             
-            @keyframes slideIn {
+            @keyframes slideUp {
                 from {
                     opacity: 0;
                     transform: translateY(20px);
@@ -235,52 +281,43 @@ class LogoutManager {
             }
             
             @media (max-width: 480px) {
-                .logout-modal-content {
+                .logout-dialog {
                     padding: 1.5rem;
+                    margin: 1rem;
                 }
                 
-                .logout-modal-actions {
-                    flex-direction: column;
+                .logout-actions {
+                    flex-direction: column-reverse;
                 }
                 
-                .logout-modal .btn {
+                .logout-actions button {
                     width: 100%;
-                    justify-content: center;
                 }
             }
         `;
         
         document.head.appendChild(style);
         document.body.appendChild(modal);
-    }
-
-    /**
-     * Configurar modal de confirmación
-     */
-    setupConfirmationModal() {
-        document.addEventListener('click', (e) => {
-            if (e.target.id === 'cancelLogout' || e.target.closest('.logout-modal-overlay')) {
-                this.hideConfirmationModal();
-            }
-            
-            if (e.target.id === 'confirmLogout') {
-                this.hideConfirmationModal();
-                this.performLogout();
-            }
-        });
-
+        
+        // Adjuntar event listeners
+        document.getElementById('cancelLogout').onclick = () => this.hideModal();
+        document.getElementById('confirmLogout').onclick = () => {
+            this.hideModal();
+            this.performLogout();
+        };
+        
         // Cerrar con ESC
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && document.getElementById('logoutModal')?.style.display === 'flex') {
-                this.hideConfirmationModal();
+            if (e.key === 'Escape' && modal.style.display === 'flex') {
+                this.hideModal();
             }
         });
     }
 
     /**
-     * Ocultar modal de confirmación
+     * Ocultar modal
      */
-    hideConfirmationModal() {
+    hideModal() {
         const modal = document.getElementById('logoutModal');
         if (modal) {
             modal.style.display = 'none';
@@ -289,129 +326,88 @@ class LogoutManager {
     }
 
     /**
-     * Realizar logout via AJAX
+     * Configurar modal de confirmación
      */
-    async performLogout(force = false) {
-        if (this.isLoggingOut) {
-            return;
-        }
+    setupConfirmationModal() {
+        // Ya se maneja en createModal()
+    }
 
-        this.isLoggingOut = true;
+    /**
+     * Realizar logout con URLs absolutas
+     */
+    performLogout() {
+        console.log('🚀 PERFORMING LOGOUT WITH ABSOLUTE URLS...');
         
+        // Mostrar indicador de carga en los botones
+        this.showLoadingState();
+        
+        // Limpiar datos locales inmediatamente
+        this.clearLocalData();
+        
+        // Obtener URLs absolutas
+        const logoutUrl = this.getLogoutUrl();
+        const indexUrl = this.getIndexUrl();
+        
+        console.log('🔄 Redirecting to absolute logout URL:', logoutUrl);
+        
+        // Opción 1: Usar fetch para llamar al logout y luego redireccionar
+        this.performAsyncLogout(logoutUrl, indexUrl);
+    }
+
+    /**
+     * Realizar logout asíncrono y luego redireccionar
+     */
+    async performAsyncLogout(logoutUrl, indexUrl) {
         try {
-            // Mostrar indicador de carga si existe
-            this.showLoadingState();
+            console.log('📡 Calling logout endpoint:', logoutUrl);
             
-            const formData = new FormData();
-            formData.append('action', 'logout');
-            
-            const url = force ? `${this.logoutUrl}?action=force` : this.logoutUrl;
-            
-            const response = await fetch(url, {
+            // Llamar al logout.php
+            const response = await fetch(logoutUrl, {
                 method: 'POST',
-                body: formData,
                 headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
+                    'Content-Type': 'application/x-www-form-urlencoded',
                 },
+                body: 'action=logout',
                 credentials: 'same-origin'
             });
-
-            const data = await response.json();
             
-            if (data.success || data.redirect) {
-                // Limpiar datos locales antes de redireccionar
-                this.clearLocalData();
-                
-                // Determinar URL de redirección
-                let redirectUrl = this.getRedirectUrl(data.redirect);
-                
-                // Pequeño delay para permitir que se complete la limpieza
-                setTimeout(() => {
-                    window.location.href = redirectUrl;
-                }, 100);
-                
+            console.log('📨 Response status:', response.status);
+            
+            if (response.ok) {
+                console.log('✅ Logout successful, redirecting to index');
+                // Redireccionar al index con parámetro de éxito
+                window.location.replace(indexUrl + '?logout=success');
             } else {
-                console.error('Error en logout:', data.message);
-                // En caso de error, redirigir directamente
-                this.forceRedirect();
+                console.warn('⚠️ Logout response not OK, but redirecting anyway');
+                window.location.replace(indexUrl + '?logout=error');
             }
             
         } catch (error) {
-            console.error('Error crítico en logout:', error);
-            // Logout de emergencia - redireccionar directamente
-            this.forceRedirect(true);
-        } finally {
-            // Reset del estado después de un tiempo
-            setTimeout(() => {
-                this.isLoggingOut = false;
-            }, 2000);
+            console.error('❌ Logout fetch error:', error);
+            // En caso de error, redireccionar directamente al logout.php
+            console.log('🆘 Fallback: Direct redirect to logout URL');
+            window.location.replace(logoutUrl);
         }
-    }
-    
-    /**
-     * Obtener URL de redirección correcta
-     */
-    getRedirectUrl(serverRedirect) {
-        const currentPath = window.location.pathname;
-        
-        // Si el servidor devolvió una URL específica, usarla
-        if (serverRedirect) {
-            // Si es una URL relativa, ajustarla según la ubicación actual
-            if (serverRedirect.startsWith('../')) {
-                return serverRedirect;
-            } else if (serverRedirect.startsWith('./')) {
-                // Convertir ruta relativa según ubicación actual
-                if (currentPath.includes('/dashboard/') || currentPath.includes('/modules/')) {
-                    return serverRedirect.replace('./', '../');
-                }
-                return serverRedirect;
-            }
-            return serverRedirect;
-        }
-        
-        // URLs por defecto según ubicación
-        if (currentPath.includes('/dashboard/') || currentPath.includes('/modules/')) {
-            return '../index.php';
-        } else if (currentPath.includes('/auth/')) {
-            return '../index.php';
-        }
-        
-        return './index.php';
-    }
-    
-    /**
-     * Forzar redirección en caso de emergencia
-     */
-    forceRedirect(emergency = false) {
-        const currentPath = window.location.pathname;
-        let redirectUrl;
-        
-        if (emergency) {
-            // Logout de emergencia directo con query param
-            if (currentPath.includes('/dashboard/') || currentPath.includes('/modules/')) {
-                redirectUrl = `${this.logoutUrl}?action=emergency`;
-            } else {
-                redirectUrl = `./auth/logout.php?action=emergency`;
-            }
-        } else {
-            // Redirección normal a index
-            redirectUrl = this.getRedirectUrl();
-        }
-        
-        window.location.href = redirectUrl;
     }
 
     /**
-     * Mostrar estado de carga
+     * Mostrar estado de carga en botones
      */
     showLoadingState() {
-        const logoutButtons = document.querySelectorAll('.logout-btn, .btn-logout, [data-action="logout"]');
+        console.log('⏳ Showing loading state on buttons');
+        
+        const logoutButtons = document.querySelectorAll(
+            '.logout-btn, .btn-logout, [data-action="logout"], .logout-link'
+        );
         
         logoutButtons.forEach(button => {
-            const originalText = button.innerHTML;
-            button.dataset.originalText = originalText;
-            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cerrando sesión...';
+            const originalContent = button.innerHTML;
+            button.dataset.originalContent = originalContent;
+            button.innerHTML = '⏳ Cerrando sesión...';
             button.disabled = true;
+            button.style.opacity = '0.7';
+            button.style.cursor = 'wait';
+            button.style.pointerEvents = 'none';
         });
     }
 
@@ -419,6 +415,8 @@ class LogoutManager {
      * Limpiar datos locales del navegador
      */
     clearLocalData() {
+        console.log('🧹 Clearing local data...');
+        
         const keysToRemove = [
             'user_preferences',
             'dashboard_cache',
@@ -426,85 +424,106 @@ class LogoutManager {
             'auth_token',
             'user_session',
             'ita_social_session',
-            'remember_token'
+            'remember_token',
+            'cart_data',
+            'temp_data',
+            'servicio_social_data',
+            'student_data'
         ];
         
+        let cleared = 0;
         keysToRemove.forEach(key => {
             try {
-                localStorage.removeItem(key);
-                sessionStorage.removeItem(key);
+                if (localStorage.getItem(key)) {
+                    localStorage.removeItem(key);
+                    cleared++;
+                }
+                if (sessionStorage.getItem(key)) {
+                    sessionStorage.removeItem(key);
+                    cleared++;
+                }
             } catch (error) {
                 console.warn(`Error removing ${key}:`, error);
             }
         });
+        
+        console.log(`✅ Cleared ${cleared} storage items`);
     }
 
     /**
-     * Logout forzado (sin confirmación)
+     * Logout inmediato sin confirmación
      */
     forceLogout() {
-        return this.performLogout(true);
+        console.log('🚨 FORCE LOGOUT TRIGGERED');
+        this.performLogout();
     }
 
     /**
-     * Verificar estado de sesión
+     * Debug: mostrar información del sistema
      */
-    async checkSession() {
-        try {
-            const response = await fetch(`${this.logoutUrl}?action=check`, {
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                credentials: 'same-origin'
-            });
-
-            const data = await response.json();
-            return data.logged_in;
-        } catch (error) {
-            console.warn('Error verificando sesión:', error);
-            return false;
-        }
+    debug() {
+        console.log('=== LOGOUT SYSTEM DEBUG (ABSOLUTE PATHS) ===');
+        console.log('Current URL:', window.location.href);
+        console.log('Pathname:', window.location.pathname);
+        console.log('Calculated logout URL:', this.getLogoutUrl());
+        console.log('Calculated index URL:', this.getIndexUrl());
+        console.log('Found buttons:', document.querySelectorAll('.logout-btn, .btn-logout, [data-action="logout"]').length);
+        console.log('================================================');
     }
 }
 
-// Inicializar automáticamente cuando el DOM esté listo con configuración dinámica
+// Auto-inicializar cuando el DOM esté listo
 document.addEventListener('DOMContentLoaded', function() {
-    // Configuración específica según la página
-    const currentPath = window.location.pathname;
-    const config = {};
+    console.log('🌐 DOM loaded, initializing SimpleLogoutManager with absolute paths');
+    window.simpleLogout = new SimpleLogoutManager();
     
-    // Configurar según ubicación si es necesario
-    if (currentPath.includes('/dashboard/')) {
-        config.logoutUrl = '../auth/logout.php';
-    } else if (currentPath.includes('/modules/')) {
-        config.logoutUrl = '../auth/logout.php';
-    }
-    
-    window.logoutManager = new LogoutManager(config);
-    
-    // Agregar mensaje de debug en desarrollo
-    console.log('LogoutManager inicializado con URL:', window.logoutManager.logoutUrl);
+    // Debug automático
+    setTimeout(() => {
+        if (window.simpleLogout) {
+            window.simpleLogout.debug();
+        }
+    }, 1000);
 });
 
-// Función global para logout manual
+// Funciones globales para uso manual
 window.performLogout = function(confirm = true) {
-    if (window.logoutManager) {
+    console.log('🎯 Global performLogout called, confirm:', confirm);
+    if (window.simpleLogout) {
         if (confirm) {
-            window.logoutManager.showConfirmationModal();
+            window.simpleLogout.showConfirmationModal();
         } else {
-            window.logoutManager.performLogout();
+            window.simpleLogout.performLogout();
         }
+    } else {
+        console.error('❌ SimpleLogoutManager not initialized');
+        // Fallback de emergencia con URL absoluta
+        const protocol = window.location.protocol;
+        const host = window.location.host;
+        const logoutUrl = `${protocol}//${host}/servicio_social_ita/auth/logout.php`;
+        window.location.href = logoutUrl;
     }
 };
 
-// Función global para logout forzado
 window.forceLogout = function() {
-    if (window.logoutManager) {
-        window.logoutManager.forceLogout();
+    console.log('🚨 Global forceLogout called');
+    if (window.simpleLogout) {
+        window.simpleLogout.forceLogout();
+    } else {
+        // Fallback directo con URL absoluta
+        const protocol = window.location.protocol;
+        const host = window.location.host;
+        const logoutUrl = `${protocol}//${host}/servicio_social_ita/auth/logout.php`;
+        
+        console.log('🆘 Emergency fallback redirect to:', logoutUrl);
+        window.location.replace(logoutUrl);
     }
 };
 
-// Exportar para módulos ES6 si es necesario
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = LogoutManager;
-}
+// Función de debug global
+window.debugLogout = function() {
+    if (window.simpleLogout) {
+        window.simpleLogout.debug();
+    } else {
+        console.log('SimpleLogoutManager not available');
+    }
+};
