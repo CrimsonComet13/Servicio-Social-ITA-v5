@@ -1,72 +1,64 @@
 <?php
 /**
- * Página de confirmación de logout exitoso
+ * Página de confirmación de logout exitoso - Versión simplificada
  */
 
+// Configuración básica
 require_once '../config/config.php';
 
-// Verificar si viene de un logout
+// Obtener tipo de logout
 $logoutType = $_GET['logout'] ?? 'success';
+
+// Mensajes según el tipo de logout
 $messages = [
     'success' => [
         'title' => 'Sesión Cerrada Exitosamente',
-        'message' => 'Tu sesión se ha cerrado correctamente. Gracias por usar el sistema de servicio social del ITA.',
-        'icon' => '✓',
-        'color' => 'success'
+        'message' => 'Tu sesión se ha cerrado correctamente.',
+        'icon' => 'fa-check-circle',
+        'color' => '#10b981'
     ],
     'forced' => [
-        'title' => 'Sesión Cerrada Forzadamente',
-        'message' => 'Tu sesión fue cerrada por razones de seguridad. Todos los datos de sesión han sido limpiados.',
-        'icon' => '⚠',
-        'color' => 'warning'
+        'title' => 'Sesión Cerrada',
+        'message' => 'Tu sesión fue cerrada por razones de seguridad.',
+        'icon' => 'fa-exclamation-triangle',
+        'color' => '#f59e0b'
     ],
     'error' => [
-        'title' => 'Error al Cerrar Sesión',
-        'message' => 'Hubo un problema al cerrar la sesión, pero se ha limpiado correctamente. Puedes continuar navegando.',
-        'icon' => '!',
-        'color' => 'error'
-    ],
-    'fallback' => [
         'title' => 'Sesión Cerrada',
-        'message' => 'El proceso de logout se completó. Tu sesión ya no está activa.',
-        'icon' => 'i',
-        'color' => 'info'
+        'message' => 'Hubo un problema pero la sesión se cerró correctamente.',
+        'icon' => 'fa-info-circle',
+        'color' => '#3b82f6'
+    ],
+    'timeout' => [
+        'title' => 'Sesión Cerrada por Timeout',
+        'message' => 'La sesión se cerró debido a inactividad.',
+        'icon' => 'fa-clock',
+        'color' => '#f59e0b'
+    ],
+    'emergency' => [
+        'title' => 'Sesión Cerrada de Emergencia',
+        'message' => 'Se ejecutó un cierre de sesión de emergencia.',
+        'icon' => 'fa-power-off',
+        'color' => '#ef4444'
     ]
 ];
 
 $currentMessage = $messages[$logoutType] ?? $messages['success'];
 
+// Título de la página
 $pageTitle = "Logout - " . APP_NAME;
-include '../includes/header.php';
 ?>
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= htmlspecialchars($pageTitle) ?></title>
-    <meta http-equiv="refresh" content="5;url=../index.php">
+    <meta http-equiv="refresh" content="10;url=../index.php">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
     <style>
-        :root {
-            --primary-color: #6366f1;
-            --primary-light: #8b8cf7;
-            --success-color: #10b981;
-            --error-color: #ef4444;
-            --warning-color: #f59e0b;
-            --info-color: #3b82f6;
-            --bg-light: #f8fafc;
-            --text-primary: #1f2937;
-            --text-secondary: #6b7280;
-            --text-light: #9ca3af;
-            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-            --radius: 12px;
-            --radius-lg: 16px;
-        }
-
         * {
             margin: 0;
             padding: 0;
@@ -74,24 +66,25 @@ include '../includes/header.php';
         }
 
         body {
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            font-family: 'Inter', system-ui, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
             padding: 1rem;
+            color: #1f2937;
         }
 
         .logout-container {
             background: white;
-            border-radius: var(--radius-lg);
+            border-radius: 16px;
             padding: 3rem;
-            box-shadow: var(--shadow-lg);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
             text-align: center;
             max-width: 500px;
             width: 100%;
-            animation: slideIn 0.5s ease-out;
+            animation: slideIn 0.6s ease-out;
         }
 
         @keyframes slideIn {
@@ -112,27 +105,11 @@ include '../includes/header.php';
             display: flex;
             align-items: center;
             justify-content: center;
-            margin: 0 auto 2rem;
+            margin: 0 auto 2rem auto;
             color: white;
             font-size: 2rem;
-            font-weight: bold;
+            background: <?= $currentMessage['color'] ?>;
             animation: pulse 2s infinite;
-        }
-
-        .logout-icon.success {
-            background: linear-gradient(135deg, var(--success-color), #34d399);
-        }
-
-        .logout-icon.error {
-            background: linear-gradient(135deg, var(--error-color), #f87171);
-        }
-
-        .logout-icon.warning {
-            background: linear-gradient(135deg, var(--warning-color), #fbbf24);
-        }
-
-        .logout-icon.info {
-            background: linear-gradient(135deg, var(--info-color), #60a5fa);
         }
 
         @keyframes pulse {
@@ -145,14 +122,14 @@ include '../includes/header.php';
         }
 
         .logout-title {
-            color: var(--text-primary);
+            color: #1f2937;
             margin-bottom: 1rem;
             font-size: 1.75rem;
             font-weight: 600;
         }
 
         .logout-message {
-            color: var(--text-secondary);
+            color: #6b7280;
             margin-bottom: 2.5rem;
             line-height: 1.6;
             font-size: 1.1rem;
@@ -163,6 +140,7 @@ include '../includes/header.php';
             gap: 1rem;
             justify-content: center;
             margin-bottom: 2rem;
+            flex-wrap: wrap;
         }
 
         .btn {
@@ -170,21 +148,23 @@ include '../includes/header.php';
             align-items: center;
             gap: 0.5rem;
             padding: 0.875rem 1.5rem;
-            border-radius: var(--radius);
+            border-radius: 12px;
             text-decoration: none;
             font-weight: 500;
             font-size: 1rem;
-            transition: all 0.2s ease;
-            box-shadow: var(--shadow);
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            border: none;
+            cursor: pointer;
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
+            background: linear-gradient(135deg, #6366f1, #8b8cf7);
             color: white;
         }
 
         .btn-secondary {
-            background: linear-gradient(135deg, var(--text-secondary), #4b5563);
+            background: linear-gradient(135deg, #6b7280, #9ca3af);
             color: white;
         }
 
@@ -196,15 +176,20 @@ include '../includes/header.php';
         .redirect-info {
             margin-top: 2rem;
             font-size: 0.875rem;
-            color: var(--text-light);
+            color: #9ca3af;
             padding: 1rem;
-            background: var(--bg-light);
-            border-radius: var(--radius);
-            border-left: 4px solid var(--primary-color);
+            background: #f8fafc;
+            border-radius: 12px;
+            border-left: 4px solid #6366f1;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 0.5rem;
+        }
+
+        .countdown {
+            font-weight: 600;
+            color: #6366f1;
         }
 
         .loading-dots {
@@ -215,7 +200,7 @@ include '../includes/header.php';
         .loading-dots span {
             width: 4px;
             height: 4px;
-            background: var(--text-light);
+            background: #9ca3af;
             border-radius: 50%;
             animation: loadingDots 1.4s infinite ease-in-out both;
         }
@@ -256,8 +241,8 @@ include '../includes/header.php';
 </head>
 <body>
     <div class="logout-container">
-        <div class="logout-icon <?= $currentMessage['color'] ?>">
-            <?= $currentMessage['icon'] ?>
+        <div class="logout-icon">
+            <i class="fas <?= $currentMessage['icon'] ?>"></i>
         </div>
         
         <h1 class="logout-title"><?= htmlspecialchars($currentMessage['title']) ?></h1>
@@ -266,7 +251,7 @@ include '../includes/header.php';
         <div class="action-buttons">
             <a href="../index.php" class="btn btn-primary">
                 <i class="fas fa-home"></i>
-                Ir a Página Principal
+                Página Principal
             </a>
             <a href="login.php" class="btn btn-secondary">
                 <i class="fas fa-sign-in-alt"></i>
@@ -276,7 +261,7 @@ include '../includes/header.php';
         
         <div class="redirect-info">
             <i class="fas fa-info-circle"></i>
-            <span id="redirect-text">Redirigiendo automáticamente en 5 segundos</span>
+            <span>Redirigiendo automáticamente en <span class="countdown" id="countdown">10</span> segundos</span>
             <div class="loading-dots">
                 <span></span>
                 <span></span>
@@ -286,56 +271,60 @@ include '../includes/header.php';
     </div>
 
     <script>
-        // Contador de redirección
-        let countdown = 5;
-        const redirectText = document.getElementById('redirect-text');
+        // Contador de redirección simplificado
+        let countdown = 10;
+        const countdownEl = document.getElementById('countdown');
         
         function updateCountdown() {
             if (countdown > 0) {
-                redirectText.textContent = `Redirigiendo automáticamente en ${countdown} segundo${countdown !== 1 ? 's' : ''}`;
+                countdownEl.textContent = countdown;
                 countdown--;
                 setTimeout(updateCountdown, 1000);
             } else {
-                redirectText.textContent = 'Redirigiendo ahora...';
                 window.location.href = '../index.php';
             }
         }
         
-        // Iniciar countdown después de 1 segundo
+        // Iniciar countdown
         setTimeout(updateCountdown, 1000);
         
-        // Redirección de seguridad
+        // Redirección de respaldo
         setTimeout(() => {
             window.location.href = '../index.php';
-        }, 6000);
+        }, 12000);
         
-        // Limpiar storage del navegador
+        // Limpiar storage del navegador de forma segura
         try {
             const keysToRemove = [
-                'user_preferences',
-                'dashboard_cache', 
-                'form_drafts',
-                'auth_token',
-                'user_session',
-                'ita_social_session',
-                'remember_token'
+                'user_preferences', 'dashboard_cache', 'form_drafts',
+                'auth_token', 'user_session', 'ita_social_session', 'remember_token'
             ];
             
             keysToRemove.forEach(key => {
-                localStorage.removeItem(key);
-                sessionStorage.removeItem(key);
+                try {
+                    localStorage.removeItem(key);
+                    sessionStorage.removeItem(key);
+                } catch (e) {
+                    // Ignorar errores individuales
+                }
             });
             
-            console.log('Storage limpiado exitosamente');
-        } catch(e) {
-            console.warn('Error limpiando storage:', e);
+            console.log('Storage limpiado correctamente');
+        } catch (e) {
+            console.warn('No se pudo limpiar el storage:', e);
         }
         
         // Prevenir botón de retroceso
-        window.history.pushState(null, null, window.location.href);
-        window.onpopstate = function () {
-            window.history.go(1);
-        };
+        try {
+            window.history.pushState(null, null, window.location.href);
+            window.onpopstate = function () {
+                window.history.go(1);
+            };
+        } catch (e) {
+            console.warn('No se pudo configurar prevención de retroceso:', e);
+        }
+        
+        console.log('Página de logout cargada - Tipo:', '<?= $logoutType ?>');
     </script>
 </body>
 </html>

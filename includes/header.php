@@ -2,41 +2,51 @@
 // Evitar acceso directo
 defined('APP_NAME') or die('Acceso restringido');
 
-// Asegurar que las variables necesarias están definidas
+// Configurar variables básicas de usuario
 if (!isset($session)) {
-    $session = SecureSession::getInstance();
+    if (class_exists('SecureSession')) {
+        $session = SecureSession::getInstance();
+    }
 }
 
-if (!isset($usuario) && isset($session) && $session->isLoggedIn()) {
+if (!isset($usuario) && isset($session) && method_exists($session, 'isLoggedIn') && $session->isLoggedIn()) {
     $usuario = [
-        'nombre' => 'Usuario',
-        'email' => $session->get('email') ?? 'usuario@ita.mx',
-        'avatar' => null
+        'nombre' => method_exists($session, 'get') ? $session->get('nombre') : 'Usuario',
+        'email' => method_exists($session, 'get') ? $session->get('email') : 'usuario@ita.mx',
+        'avatar' => method_exists($session, 'get') ? $session->get('avatar') : null
     ];
 }
 
-// Función auxiliar para obtener nombre seguro del usuario
+// Funciones auxiliares simplificadas
 function getSafeUserDisplayName($usuario, $maxLength = 20) {
-    if (!is_array($usuario)) {
-        return 'Usuario';
-    }
-    
+    if (!is_array($usuario)) return 'Usuario';
     $name = $usuario['nombre'] ?? $usuario['email'] ?? 'Usuario';
-    
-    if ($name && is_string($name)) {
-        return htmlspecialchars(strlen($name) > $maxLength ? substr($name, 0, $maxLength) . '...' : $name);
+    if (strlen($name) > $maxLength) {
+        $name = substr($name, 0, $maxLength) . '...';
     }
-    
-    return 'Usuario';
+    return htmlspecialchars($name);
 }
 
-// Función auxiliar para obtener email seguro del usuario
 function getSafeUserDisplayEmail($usuario) {
-    if (!is_array($usuario)) {
-        return 'usuario@ita.mx';
-    }
-    
+    if (!is_array($usuario)) return 'usuario@ita.mx';
     return htmlspecialchars($usuario['email'] ?? 'usuario@ita.mx');
+}
+
+function getUserRole() {
+    global $session;
+    if (isset($session) && method_exists($session, 'getUserRole')) {
+        return $session->getUserRole();
+    }
+    return 'estudiante';
+}
+
+function getFlashMessage() {
+    if (isset($_SESSION['flash_message'])) {
+        $message = $_SESSION['flash_message'];
+        unset($_SESSION['flash_message']);
+        return $message;
+    }
+    return null;
 }
 ?>
 <!DOCTYPE html>
@@ -46,9 +56,8 @@ function getSafeUserDisplayEmail($usuario) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= $pageTitle ?? APP_NAME ?></title>
     
-    <!-- Meta tags -->
+    <!-- Meta tags básicos -->
     <meta name="description" content="Sistema de Gestión de Servicio Social - Instituto Tecnológico de Aguascalientes">
-    <meta name="keywords" content="ITA, servicio social, estudiantes, laboratorio, departamento">
     <meta name="author" content="Instituto Tecnológico de Aguascalientes">
     
     <!-- Stylesheets -->
@@ -61,13 +70,674 @@ function getSafeUserDisplayEmail($usuario) {
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="../assets/images/logo-ita.png">
     
-    <!-- PWA Meta -->
-    <meta name="theme-color" content="#6366f1">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <!-- CSS del Header -->
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-light: #8b8cf7;
+            --success: #10b981;
+            --error: #ef4444;
+            --warning: #f59e0b;
+            --info: #3b82f6;
+            --bg-white: #ffffff;
+            --bg-light: #f8fafc;
+            --text-primary: #1f2937;
+            --text-secondary: #6b7280;
+            --text-light: #9ca3af;
+            --border: #e5e7eb;
+            --border-light: #f3f4f6;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            --radius: 12px;
+            --radius-lg: 16px;
+            --transition: all 0.3s ease;
+            --header-height: 80px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: var(--text-primary);
+            background: var(--bg-light);
+            overflow-x: hidden;
+        }
+
+        /* Header principal */
+        .app-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: var(--header-height);
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            z-index: 1000;
+            transition: var(--transition);
+        }
+
+        .header-container {
+            height: 100%;
+            max-width: 100%;
+            margin: 0 auto;
+            padding: 0 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 2rem;
+        }
+
+        /* Mobile Menu Toggle */
+        .mobile-menu-toggle {
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: var(--radius);
+            transition: var(--transition);
+        }
+
+        .mobile-menu-toggle:hover {
+            background: var(--bg-light);
+        }
+
+        .hamburger-line {
+            width: 24px;
+            height: 2px;
+            background: var(--text-primary);
+            margin: 3px 0;
+            transition: var(--transition);
+            border-radius: 1px;
+        }
+
+        /* Brand */
+        .header-brand {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-shrink: 0;
+        }
+
+        .brand-logo {
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+        }
+
+        .brand-logo img {
+            width: 32px;
+            height: 32px;
+            object-fit: contain;
+        }
+
+        .brand-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .brand-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1;
+            margin: 0;
+        }
+
+        .brand-subtitle {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        /* Header Actions */
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        /* Notifications */
+        .notification-dropdown {
+            position: relative;
+        }
+
+        .notification-trigger {
+            position: relative;
+            width: 44px;
+            height: 44px;
+            background: none;
+            border: none;
+            border-radius: var(--radius);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            transition: var(--transition);
+        }
+
+        .notification-trigger:hover {
+            background: var(--bg-light);
+            color: var(--primary);
+        }
+
+        .notification-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: var(--error);
+            color: white;
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 10px;
+            min-width: 18px;
+            height: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+        }
+
+        .notification-menu {
+            position: absolute;
+            top: calc(100% + 10px);
+            right: 0;
+            width: 350px;
+            background: var(--bg-white);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-10px);
+            transition: var(--transition);
+            z-index: 1001;
+        }
+
+        .notification-dropdown.active .notification-menu {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        .notification-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .notification-header h3 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .notification-list {
+            max-height: 300px;
+            overflow-y: auto;
+            padding: 0.5rem 0;
+        }
+
+        .notification-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border-light);
+            transition: var(--transition);
+        }
+
+        .notification-item:hover {
+            background: var(--bg-light);
+        }
+
+        .notification-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: var(--radius);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .notification-icon.success { background: var(--success); }
+        .notification-icon.info { background: var(--info); }
+        .notification-icon.warning { background: var(--warning); }
+
+        .notification-content h4 {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.25rem;
+        }
+
+        .notification-content p {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+            line-height: 1.4;
+        }
+
+        .notification-time {
+            font-size: 0.75rem;
+            color: var(--text-light);
+        }
+
+        /* User Dropdown */
+        .user-dropdown {
+            position: relative;
+        }
+
+        .user-trigger {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: var(--radius);
+            transition: var(--transition);
+            max-width: 200px;
+        }
+
+        .user-trigger:hover {
+            background: var(--bg-light);
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius);
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1rem;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        .user-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .user-info {
+            flex: 1;
+            text-align: left;
+            min-width: 0;
+        }
+
+        .user-name {
+            display: block;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .user-role {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .user-chevron {
+            font-size: 0.75rem;
+            color: var(--text-light);
+            transition: var(--transition);
+        }
+
+        .user-dropdown.active .user-chevron {
+            transform: rotate(180deg);
+        }
+
+        .user-menu {
+            position: absolute;
+            top: calc(100% + 10px);
+            right: 0;
+            width: 280px;
+            background: var(--bg-white);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-10px);
+            transition: var(--transition);
+            z-index: 1001;
+        }
+
+        .user-dropdown.active .user-menu {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        .user-menu-header {
+            padding: 2rem;
+            border-bottom: 1px solid var(--border);
+            text-align: center;
+        }
+
+        .user-details {
+            margin-top: 1rem;
+        }
+
+        .user-details h3 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.25rem;
+        }
+
+        .user-details p {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.75rem;
+        }
+
+        .role-badge {
+            display: inline-block;
+            background: rgba(99, 102, 241, 0.1);
+            color: var(--primary);
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 0.25rem 0.75rem;
+            border-radius: 2rem;
+        }
+
+        .user-menu-nav {
+            padding: 0.5rem 0;
+        }
+
+        .user-menu-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.75rem 2rem;
+            color: var(--text-primary);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: var(--transition);
+            background: none;
+            border: none;
+            width: 100%;
+            text-align: left;
+            cursor: pointer;
+        }
+
+        .user-menu-item:hover {
+            background: var(--bg-light);
+        }
+
+        .user-menu-item.logout {
+            color: var(--error);
+            border-top: 1px solid var(--border);
+        }
+
+        .user-menu-item.logout:hover {
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .user-menu-item i {
+            width: 16px;
+            text-align: center;
+        }
+
+        /* Modal de logout */
+        .logout-modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.9);
+            background: var(--bg-white);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+            z-index: 1100;
+            opacity: 0;
+            visibility: hidden;
+            transition: var(--transition);
+            min-width: 400px;
+            max-width: 90vw;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .logout-modal.active {
+            opacity: 1;
+            visibility: visible;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        .logout-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1099;
+            opacity: 0;
+            visibility: hidden;
+            transition: var(--transition);
+        }
+
+        .logout-modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .logout-modal h3 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+        }
+
+        .logout-modal p {
+            color: var(--text-secondary);
+            font-size: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .logout-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius);
+            font-weight: 500;
+            font-size: 0.95rem;
+            transition: var(--transition);
+            border: none;
+            cursor: pointer;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        .btn-secondary {
+            background: var(--bg-light);
+            color: var(--text-primary);
+            border: 2px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-white);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, var(--error), #f87171);
+            color: white;
+            box-shadow: var(--shadow);
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .btn-danger:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Main Content */
+        .main-content {
+            margin-top: var(--header-height);
+            min-height: calc(100vh - var(--header-height));
+        }
+
+        /* Flash Messages */
+        .flash-message {
+            position: fixed;
+            top: calc(var(--header-height) + 1rem);
+            right: 2rem;
+            background: var(--bg-white);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+            padding: 1rem 1.5rem;
+            z-index: 1050;
+            min-width: 300px;
+            animation: slideInRight 0.3s ease-out;
+        }
+
+        .flash-message.success {
+            border-left: 4px solid var(--success);
+        }
+
+        .flash-message.error {
+            border-left: 4px solid var(--error);
+        }
+
+        .flash-message.warning {
+            border-left: 4px solid var(--warning);
+        }
+
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .logged-in .main-content {
+                margin-left: 0;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header-container {
+                padding: 0 1rem;
+                gap: 1rem;
+            }
+
+            .mobile-menu-toggle {
+                display: flex;
+            }
+
+            .brand-info {
+                display: none;
+            }
+
+            .user-info {
+                display: none;
+            }
+
+            .notification-menu,
+            .user-menu {
+                width: 300px;
+                max-width: calc(100vw - 2rem);
+            }
+
+            .logout-modal {
+                min-width: 300px;
+                margin: 1rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header-container {
+                padding: 0 0.75rem;
+                gap: 0.5rem;
+            }
+
+            .brand-logo {
+                width: 40px;
+                height: 40px;
+            }
+
+            .brand-logo img {
+                width: 24px;
+                height: 24px;
+            }
+
+            .brand-title {
+                font-size: 1.25rem;
+            }
+
+            .notification-menu,
+            .user-menu {
+                width: 280px;
+            }
+
+            .logout-actions {
+                flex-direction: column;
+            }
+        }
+    </style>
 </head>
-<body class="<?= isset($session) && $session->isLoggedIn() ? 'logged-in' : 'guest' ?>">
-    <?php if (isset($session) && $session->isLoggedIn()): ?>
+<body class="<?= (isset($session) && method_exists($session, 'isLoggedIn') && $session->isLoggedIn()) ? 'logged-in' : 'guest' ?>">
+    
+    <?php if (isset($session) && method_exists($session, 'isLoggedIn') && $session->isLoggedIn()): ?>
     <!-- Header para usuarios autenticados -->
     <header class="app-header">
         <div class="header-container">
@@ -89,8 +759,7 @@ function getSafeUserDisplayEmail($usuario) {
                 </div>
             </div>
 
-            
-            <!-- Notifications y User -->
+            <!-- Acciones del header -->
             <div class="header-actions">
                 <!-- Notifications -->
                 <div class="notification-dropdown">
@@ -102,10 +771,9 @@ function getSafeUserDisplayEmail($usuario) {
                     <div class="notification-menu" id="notificationMenu">
                         <div class="notification-header">
                             <h3>Notificaciones</h3>
-                            <button class="mark-all-read">Marcar todas como leídas</button>
                         </div>
                         <div class="notification-list">
-                            <div class="notification-item unread">
+                            <div class="notification-item">
                                 <div class="notification-icon success">
                                     <i class="fas fa-check-circle"></i>
                                 </div>
@@ -126,16 +794,11 @@ function getSafeUserDisplayEmail($usuario) {
                                 </div>
                             </div>
                         </div>
-                        <div class="notification-footer">
-                            <a href="../modules/<?= $session->getUserRole() ?>/notificaciones.php" class="view-all-notifications">
-                                Ver todas las notificaciones
-                            </a>
-                        </div>
                     </div>
                 </div>
                 
                 <!-- User Dropdown -->
-                <div class="user-dropdown">
+                <div class="user-dropdown" id="userDropdown">
                     <button class="user-trigger" id="userTrigger" aria-label="Perfil de usuario">
                         <div class="user-avatar">
                             <?php if (isset($usuario['avatar']) && $usuario['avatar']): ?>
@@ -146,14 +809,14 @@ function getSafeUserDisplayEmail($usuario) {
                         </div>
                         <div class="user-info">
                             <span class="user-name"><?= getSafeUserDisplayName($usuario) ?></span>
-                            <span class="user-role"><?= ucfirst(str_replace('_', ' ', $session->getUserRole())) ?></span>
+                            <span class="user-role"><?= ucfirst(str_replace('_', ' ', getUserRole())) ?></span>
                         </div>
                         <i class="fas fa-chevron-down user-chevron"></i>
                     </button>
                     
                     <div class="user-menu" id="userMenu">
                         <div class="user-menu-header">
-                            <div class="user-avatar large">
+                            <div class="user-avatar large" style="width: 60px; height: 60px; font-size: 1.5rem;">
                                 <?php if (isset($usuario['avatar']) && $usuario['avatar']): ?>
                                     <img src="<?= UPLOAD_URL . $usuario['avatar'] ?>" alt="Avatar">
                                 <?php else: ?>
@@ -163,17 +826,20 @@ function getSafeUserDisplayEmail($usuario) {
                             <div class="user-details">
                                 <h3><?= getSafeUserDisplayName($usuario, 30) ?></h3>
                                 <p><?= getSafeUserDisplayEmail($usuario) ?></p>
-                                <span class="role-badge"><?= ucfirst(str_replace('_', ' ', $session->getUserRole())) ?></span>
+                                <span class="role-badge"><?= ucfirst(str_replace('_', ' ', getUserRole())) ?></span>
                             </div>
                         </div>
                         
                         <nav class="user-menu-nav">
+                            <a href="../modules/<?= getUserRole() ?>/perfil.php" class="user-menu-item">
+                                <i class="fas fa-user"></i>
+                                <span>Mi Perfil</span>
+                            </a>
                             <a href="../help.php" class="user-menu-item">
                                 <i class="fas fa-question-circle"></i>
                                 <span>Ayuda</span>
                             </a>
-                            <!-- LOGOUT MEJORADO CON AJAX -->
-                            <button type="button" onclick="performSecureLogout()" class="user-menu-item logout" id="logoutButton">
+                            <button type="button" onclick="showLogoutModal()" class="user-menu-item logout">
                                 <i class="fas fa-sign-out-alt"></i>
                                 <span>Cerrar Sesión</span>
                             </button>
@@ -184,949 +850,259 @@ function getSafeUserDisplayEmail($usuario) {
         </div>
     </header>
     
-    <!-- Overlay for mobile -->
-    <div class="mobile-overlay" id="mobileOverlay"></div>
-    
     <!-- Modal de Confirmación de Logout -->
     <div class="logout-modal" id="logoutModal">
-        <div class="logout-modal-content">
-            <div class="logout-modal-header">
-                <div class="logout-icon">
-                    <i class="fas fa-sign-out-alt"></i>
-                </div>
-                <h3>¿Cerrar Sesión?</h3>
-                <p>¿Estás seguro de que deseas cerrar tu sesión?</p>
-            </div>
-            <div class="logout-modal-actions">
-                <button type="button" class="btn btn-secondary" onclick="closeLogoutModal()">
-                    <i class="fas fa-times"></i>
-                    Cancelar
-                </button>
-                <button type="button" class="btn btn-danger" onclick="confirmLogout()" id="confirmLogoutBtn">
-                    <i class="fas fa-sign-out-alt"></i>
-                    Cerrar Sesión
-                </button>
-            </div>
+        <h3>¿Cerrar Sesión?</h3>
+        <p>¿Estás seguro de que deseas cerrar tu sesión?</p>
+        <div class="logout-actions">
+            <button type="button" class="btn btn-secondary" onclick="closeLogoutModal()">
+                <i class="fas fa-times"></i>
+                Cancelar
+            </button>
+            <button type="button" class="btn btn-danger" onclick="executeLogout()" id="logoutBtn">
+                <i class="fas fa-sign-out-alt"></i>
+                Cerrar Sesión
+            </button>
         </div>
     </div>
     
     <!-- Overlay del Modal -->
-    <div class="logout-modal-overlay" id="logoutModalOverlay"></div>
+    <div class="logout-modal-overlay" id="logoutModalOverlay" onclick="closeLogoutModal()"></div>
+    <?php endif; ?>
+    
+    <!-- Flash Messages -->
+    <?php if ($flash = getFlashMessage()): ?>
+    <div class="flash-message <?= $flash['type'] ?>" id="flashMessage">
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <i class="fas fa-<?= $flash['type'] === 'success' ? 'check-circle' : ($flash['type'] === 'error' ? 'exclamation-circle' : 'info-circle') ?>"></i>
+            <span><?= htmlspecialchars($flash['message']) ?></span>
+            <button onclick="document.getElementById('flashMessage').remove()" style="background: none; border: none; color: inherit; cursor: pointer; padding: 0.25rem;">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
     <?php endif; ?>
     
     <main class="main-content">
-        
-<style>
-:root {
-    --primary: #6366f1;
-    --primary-light: #8b8cf7;
-    --primary-dark: #4f46e5;
-    --secondary: #1f2937;
-    --success: #10b981;
-    --warning: #f59e0b;
-    --error: #ef4444;
-    --info: #3b82f6;
-    --bg-dark: #0f1419;
-    --bg-darker: #1a202c;
-    --bg-light: #f8fafc;
-    --bg-white: #ffffff;
-    --text-primary: #1f2937;
-    --text-secondary: #6b7280;
-    --text-light: #9ca3af;
-    --border: #e5e7eb;
-    --border-light: #f3f4f6;
-    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-    --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-    --radius: 12px;
-    --radius-lg: 16px;
-    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    --header-height: 80px;
-    --sidebar-width: 280px;
-}
-
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
-
-body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    line-height: 1.6;
-    color: var(--text-primary);
-    background: var(--bg-light);
-    overflow-x: hidden;
-}
-
-/* Header Styles */
-.app-header {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: var(--header-height);
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(20px);
-    border-bottom: 1px solid var(--border);
-    z-index: 1000;
-    transition: var(--transition);
-}
-
-.header-container {
-    height: 100%;
-    max-width: 100%;
-    margin: 0 auto;
-    padding: 0 2rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 2rem;
-}
-
-/* Mobile Menu Toggle */
-.mobile-menu-toggle {
-    display: none;
-    flex-direction: column;
-    justify-content: center;
-    width: 40px;
-    height: 40px;
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 8px;
-    border-radius: var(--radius);
-    transition: var(--transition);
-}
-
-.mobile-menu-toggle:hover {
-    background: var(--bg-light);
-}
-
-.hamburger-line {
-    width: 24px;
-    height: 2px;
-    background: var(--text-primary);
-    margin: 3px 0;
-    transition: var(--transition);
-    border-radius: 1px;
-}
-
-.mobile-menu-toggle.active .hamburger-line:nth-child(1) {
-    transform: rotate(-45deg) translate(-5px, 6px);
-}
-
-.mobile-menu-toggle.active .hamburger-line:nth-child(2) {
-    opacity: 0;
-}
-
-.mobile-menu-toggle.active .hamburger-line:nth-child(3) {
-    transform: rotate(45deg) translate(-5px, -6px);
-}
-
-/* Brand */
-.header-brand {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    flex-shrink: 0;
-}
-
-.brand-logo {
-    width: 50px;
-    height: 50px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: linear-gradient(135deg, var(--primary), var(--primary-light));
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
-}
-
-.brand-logo img {
-    width: 32px;
-    height: 32px;
-    object-fit: contain;
-}
-
-.brand-info {
-    display: flex;
-    flex-direction: column;
-}
-
-.brand-title {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    line-height: 1;
-    margin: 0;
-}
-
-.brand-subtitle {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-    font-weight: 500;
-}
-
-/* Search */
-.header-search {
-    flex: 1;
-    max-width: 400px;
-    margin: 0 2rem;
-}
-
-.search-container {
-    position: relative;
-    width: 100%;
-}
-
-.search-icon {
-    position: absolute;
-    left: 1rem;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--text-light);
-    font-size: 0.9rem;
-}
-
-.search-input {
-    width: 100%;
-    padding: 0.75rem 1rem 0.75rem 3rem;
-    border: 2px solid var(--border);
-    border-radius: var(--radius);
-    font-size: 0.95rem;
-    font-family: inherit;
-    transition: var(--transition);
-    background: var(--bg-white);
-}
-
-.search-input:focus {
-    outline: none;
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-}
-
-/* Header Actions */
-.header-actions {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-}
-
-/* Notifications */
-.notification-dropdown {
-    position: relative;
-}
-
-.notification-trigger {
-    position: relative;
-    width: 44px;
-    height: 44px;
-    background: none;
-    border: none;
-    border-radius: var(--radius);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-secondary);
-    font-size: 1.1rem;
-    transition: var(--transition);
-}
-
-.notification-trigger:hover {
-    background: var(--bg-light);
-    color: var(--primary);
-}
-
-.notification-badge {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    background: var(--error);
-    color: white;
-    font-size: 0.7rem;
-    font-weight: 600;
-    padding: 2px 6px;
-    border-radius: 10px;
-    min-width: 18px;
-    height: 18px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    line-height: 1;
-}
-
-.notification-menu {
-    position: absolute;
-    top: calc(100% + 10px);
-    right: 0;
-    width: 350px;
-    background: var(--bg-white);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-lg);
-    opacity: 0;
-    visibility: hidden;
-    transform: translateY(-10px);
-    transition: var(--transition);
-    z-index: 1001;
-}
-
-.notification-dropdown.active .notification-menu {
-    opacity: 1;
-    visibility: visible;
-    transform: translateY(0);
-}
-
-.notification-header {
-    padding: 1.5rem;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.notification-header h3 {
-    font-size: 1.125rem;
-    font-weight: 600;
-    color: var(--text-primary);
-}
-
-.mark-all-read {
-    background: none;
-    border: none;
-    color: var(--primary);
-    font-size: 0.875rem;
-    font-weight: 500;
-    cursor: pointer;
-    padding: 0.25rem 0.5rem;
-    border-radius: 6px;
-    transition: var(--transition);
-}
-
-.mark-all-read:hover {
-    background: rgba(99, 102, 241, 0.1);
-}
-
-.notification-list {
-    max-height: 300px;
-    overflow-y: auto;
-}
-
-.notification-item {
-    display: flex;
-    align-items: flex-start;
-    gap: 1rem;
-    padding: 1rem 1.5rem;
-    border-bottom: 1px solid var(--border-light);
-    transition: var(--transition);
-    position: relative;
-}
-
-.notification-item:last-child {
-    border-bottom: none;
-}
-
-.notification-item:hover {
-    background: var(--bg-light);
-}
-
-.notification-item.unread {
-    background: rgba(99, 102, 241, 0.05);
-}
-
-.notification-item.unread::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 3px;
-    background: var(--primary);
-}
-
-.notification-icon {
-    width: 32px;
-    height: 32px;
-    border-radius: var(--radius);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.9rem;
-    color: white;
-    flex-shrink: 0;
-}
-
-.notification-icon.success {
-    background: var(--success);
-}
-
-.notification-icon.info {
-    background: var(--info);
-}
-
-.notification-icon.warning {
-    background: var(--warning);
-}
-
-.notification-icon.error {
-    background: var(--error);
-}
-
-.notification-content {
-    flex: 1;
-}
-
-.notification-content h4 {
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 0.25rem;
-}
-
-.notification-content p {
-    font-size: 0.875rem;
-    color: var(--text-secondary);
-    margin-bottom: 0.5rem;
-    line-height: 1.4;
-}
-
-.notification-time {
-    font-size: 0.75rem;
-    color: var(--text-light);
-}
-
-.notification-footer {
-    padding: 1rem 1.5rem;
-    border-top: 1px solid var(--border);
-    text-align: center;
-}
-
-.view-all-notifications {
-    color: var(--primary);
-    text-decoration: none;
-    font-size: 0.875rem;
-    font-weight: 500;
-    transition: var(--transition);
-}
-
-.view-all-notifications:hover {
-    text-decoration: underline;
-}
-
-/* User Dropdown */
-.user-dropdown {
-    position: relative;
-}
-
-.user-trigger {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0.5rem;
-    border-radius: var(--radius);
-    transition: var(--transition);
-    max-width: 200px;
-}
-
-.user-trigger:hover {
-    background: var(--bg-light);
-}
-
-.user-avatar {
-    width: 40px;
-    height: 40px;
-    border-radius: var(--radius);
-    background: linear-gradient(135deg, var(--primary), var(--primary-light));
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 1rem;
-    overflow: hidden;
-    flex-shrink: 0;
-}
-
-.user-avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.user-avatar.large {
-    width: 60px;
-    height: 60px;
-    font-size: 1.5rem;
-}
-
-.user-info {
-    flex: 1;
-    text-align: left;
-    min-width: 0;
-}
-
-.user-name {
-    display: block;
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.user-role {
-    display: block;
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.user-chevron {
-    font-size: 0.75rem;
-    color: var(--text-light);
-    transition: var(--transition);
-}
-
-.user-dropdown.active .user-chevron {
-    transform: rotate(180deg);
-}
-
-.user-menu {
-    position: absolute;
-    top: calc(100% + 10px);
-    right: 0;
-    width: 280px;
-    background: var(--bg-white);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-lg);
-    opacity: 0;
-    visibility: hidden;
-    transform: translateY(-10px);
-    transition: var(--transition);
-    z-index: 1001;
-}
-
-.user-dropdown.active .user-menu {
-    opacity: 1;
-    visibility: visible;
-    transform: translateY(0);
-}
-
-.user-menu-header {
-    padding: 2rem;
-    border-bottom: 1px solid var(--border);
-    text-align: center;
-}
-
-.user-details {
-    margin-top: 1rem;
-}
-
-.user-details h3 {
-    font-size: 1.125rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 0.25rem;
-}
-
-.user-details p {
-    font-size: 0.875rem;
-    color: var(--text-secondary);
-    margin-bottom: 0.75rem;
-}
-
-.role-badge {
-    display: inline-block;
-    background: rgba(99, 102, 241, 0.1);
-    color: var(--primary);
-    font-size: 0.75rem;
-    font-weight: 500;
-    padding: 0.25rem 0.75rem;
-    border-radius: 2rem;
-}
-
-.user-menu-nav {
-    padding: 0.5rem 0;
-}
-
-.user-menu-item {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 0.75rem 2rem;
-    color: var(--text-primary);
-    text-decoration: none;
-    font-size: 0.9rem;
-    font-weight: 500;
-    transition: var(--transition);
-    background: none;
-    border: none;
-    width: 100%;
-    text-align: left;
-    cursor: pointer;
-}
-
-.user-menu-item:hover {
-    background: var(--bg-light);
-}
-
-.user-menu-item.logout {
-    color: var(--error);
-}
-
-.user-menu-item.logout:hover {
-    background: rgba(239, 68, 68, 0.1);
-}
-
-.user-menu-item i {
-    width: 16px;
-    text-align: center;
-}
-
-.user-menu-divider {
-    height: 1px;
-    background: var(--border);
-    margin: 0.5rem 0;
-}
-
-/* Mobile Overlay */
-.mobile-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: 999;
-    opacity: 0;
-    visibility: hidden;
-    transition: var(--transition);
-}
-
-.mobile-overlay.active {
-    opacity: 1;
-    visibility: visible;
-}
-
-/* LOGOUT MODAL STYLES */
-.logout-modal {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%) scale(0.9);
-    background: var(--bg-white);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-lg);
-    z-index: 1100;
-    opacity: 0;
-    visibility: hidden;
-    transition: var(--transition);
-    min-width: 400px;
-    max-width: 90vw;
-}
-
-.logout-modal.active {
-    opacity: 1;
-    visibility: visible;
-    transform: translate(-50%, -50%) scale(1);
-}
-
-.logout-modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.7);
-    z-index: 1099;
-    opacity: 0;
-    visibility: hidden;
-    transition: var(--transition);
-}
-
-.logout-modal-overlay.active {
-    opacity: 1;
-    visibility: visible;
-}
-
-.logout-modal-content {
-    padding: 2rem;
-}
-
-.logout-modal-header {
-    text-align: center;
-    margin-bottom: 2rem;
-}
-
-.logout-icon {
-    width: 80px;
-    height: 80px;
-    background: linear-gradient(135deg, var(--error), #f87171);
-    color: white;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 2rem;
-    margin: 0 auto 1.5rem auto;
-    animation: pulse 2s infinite;
-}
-
-.logout-modal-header h3 {
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 0.5rem;
-}
-
-.logout-modal-header p {
-    color: var(--text-secondary);
-    font-size: 1rem;
-}
-
-.logout-modal-actions {
-    display: flex;
-    gap: 1rem;
-    justify-content: center;
-}
-
-.btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    padding: 0.75rem 1.5rem;
-    border-radius: var(--radius);
-    font-weight: 500;
-    font-size: 0.95rem;
-    transition: var(--transition);
-    border: none;
-    cursor: pointer;
-    text-decoration: none;
-    white-space: nowrap;
-}
-
-.btn-secondary {
-    background: var(--bg-light);
-    color: var(--text-primary);
-    border: 2px solid var(--border);
-}
-
-.btn-secondary:hover {
-    background: var(--bg-white);
-    border-color: var(--primary);
-    color: var(--primary);
-}
-
-.btn-danger {
-    background: linear-gradient(135deg, var(--error), #f87171);
-    color: white;
-    box-shadow: var(--shadow);
-}
-
-.btn-danger:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-lg);
-}
-
-.btn-danger:disabled {
-    opacity: 0.7;
-    cursor: not-allowed;
-    transform: none;
-}
-
-.btn-warning {
-    background: linear-gradient(135deg, var(--warning), #fbbf24);
-    color: white;
-    box-shadow: var(--shadow);
-}
-
-.btn-warning:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-lg);
-}
-
-/* Loading state */
-.loading {
-    position: relative;
-    pointer-events: none;
-}
-
-.loading::before {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 20px;
-    height: 20px;
-    border: 2px solid transparent;
-    border-top: 2px solid currentColor;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    z-index: 1;
-}
-
-.loading span {
-    opacity: 0;
-}
-
-@keyframes pulse {
-    0%, 100% {
-        transform: scale(1);
-    }
-    50% {
-        transform: scale(1.05);
-    }
-}
-
-@keyframes spin {
-    from { transform: translate(-50%, -50%) rotate(0deg); }
-    to { transform: translate(-50%, -50%) rotate(360deg); }
-}
-
-/* Main Content */
-.main-content {
-    margin-top: var(--header-height);
-    min-height: calc(100vh - var(--header-height));
-}
-
-.logged-in .main-content {
-    margin-left: var(--sidebar-width);
-}
-
-/* Responsive */
-@media (max-width: 1024px) {
-    .header-search {
-        display: none;
-    }
-    
-    .logged-in .main-content {
-        margin-left: 0;
-    }
-}
-
-@media (max-width: 768px) {
-    .header-container {
-        padding: 0 1rem;
-        gap: 1rem;
-    }
-
-    .mobile-menu-toggle {
-        display: flex;
-    }
-
-    .brand-info {
-        display: none;
-    }
-
-    .user-info {
-        display: none;
-    }
-
-    .notification-menu,
-    .user-menu {
-        width: 300px;
-        max-width: calc(100vw - 2rem);
-    }
-
-    .logout-modal {
-        min-width: 300px;
-        margin: 1rem;
-    }
-}
-
-@media (max-width: 480px) {
-    .header-container {
-        padding: 0 0.75rem;
-        gap: 0.5rem;
-    }
-
-    .brand-logo {
-        width: 40px;
-        height: 40px;
-    }
-
-    .brand-logo img {
-        width: 24px;
-        height: 24px;
-    }
-
-    .brand-title {
-        font-size: 1.25rem;
-    }
-
-    .notification-menu,
-    .user-menu {
-        width: 280px;
-    }
-
-    .logout-modal-content {
-        padding: 1.5rem;
-    }
-
-    .logout-modal-actions {
-        flex-direction: column;
-    }
-}
-
-/* Scrollbar personalizado */
-.notification-list::-webkit-scrollbar,
-.user-menu::-webkit-scrollbar {
-    width: 6px;
-}
-
-.notification-list::-webkit-scrollbar-track,
-.user-menu::-webkit-scrollbar-track {
-    background: var(--bg-light);
-}
-
-.notification-list::-webkit-scrollbar-thumb,
-.user-menu::-webkit-scrollbar-thumb {
-    background: var(--border);
-    border-radius: 3px;
-}
-
-.notification-list::-webkit-scrollbar-thumb:hover,
-.user-menu::-webkit-scrollbar-thumb:hover {
-    background: var(--text-light);
-}
-</style>
 
 <script>
+// ================================
+// SISTEMA DE LOGOUT SIMPLIFICADO
+// ================================
+
+// Variables globales
+let logoutInProgress = false;
+
+// Función para mostrar modal de logout
+function showLogoutModal() {
+    const modal = document.getElementById('logoutModal');
+    const overlay = document.getElementById('logoutModalOverlay');
+    
+    if (modal && overlay) {
+        modal.classList.add('active');
+        overlay.classList.add('active');
+        document.body.style.overflow = 'hidden';
+        
+        // Cerrar dropdown de usuario
+        const userDropdown = document.getElementById('userDropdown');
+        if (userDropdown) {
+            userDropdown.classList.remove('active');
+        }
+    }
+}
+
+// Función para cerrar modal de logout
+function closeLogoutModal() {
+    const modal = document.getElementById('logoutModal');
+    const overlay = document.getElementById('logoutModalOverlay');
+    
+    if (modal && overlay) {
+        modal.classList.remove('active');
+        overlay.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+}
+
+// Función principal de logout simplificada
+async function executeLogout() {
+    if (logoutInProgress) return;
+    
+    logoutInProgress = true;
+    const logoutBtn = document.getElementById('logoutBtn');
+    
+    try {
+        // Mostrar estado de carga
+        if (logoutBtn) {
+            logoutBtn.disabled = true;
+            logoutBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cerrando...';
+        }
+        
+        // Calcular URL de logout de manera simple
+        const currentPath = window.location.pathname;
+        const pathSegments = currentPath.split('/');
+        
+        // Remover archivo actual y llegar a la raíz del proyecto
+        while (pathSegments.length > 0 && pathSegments[pathSegments.length - 1] !== 'servicio_social_ita') {
+            pathSegments.pop();
+        }
+        
+        if (pathSegments.length === 0 || pathSegments[pathSegments.length - 1] !== 'servicio_social_ita') {
+            // Fallback: asumir que estamos en subcarpeta
+            pathSegments.push('servicio_social_ita');
+        }
+        
+        const baseUrl = window.location.origin + pathSegments.join('/') + '/';
+        const logoutUrl = baseUrl + 'auth/logout.php';
+        
+        console.log('Ejecutando logout en:', logoutUrl);
+        
+        // Intentar logout AJAX
+        try {
+            const response = await fetch(logoutUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: 'action=ajax',
+                credentials: 'same-origin'
+            });
+            
+            if (response.ok) {
+                const contentType = response.headers.get('content-type');
+                
+                if (contentType && contentType.includes('application/json')) {
+                    const result = await response.json();
+                    if (result.success) {
+                        handleLogoutSuccess(result.redirect || baseUrl + 'index.php');
+                        return;
+                    }
+                }
+            }
+        } catch (ajaxError) {
+            console.warn('AJAX logout falló:', ajaxError);
+        }
+        
+        // Fallback: redirección directa
+        console.log('Usando fallback de redirección directa');
+        clearLocalData();
+        window.location.href = logoutUrl + '?action=force';
+        
+    } catch (error) {
+        console.error('Error en logout:', error);
+        handleLogoutError();
+    }
+}
+
+// Manejar logout exitoso
+function handleLogoutSuccess(redirectUrl) {
+    console.log('Logout exitoso, redirigiendo a:', redirectUrl);
+    
+    clearLocalData();
+    closeLogoutModal();
+    
+    // Mostrar mensaje temporal
+    showTempMessage('Sesión cerrada exitosamente', 'success');
+    
+    // Redirigir después de un momento
+    setTimeout(() => {
+        window.location.href = redirectUrl;
+    }, 1000);
+}
+
+// Manejar error en logout
+function handleLogoutError() {
+    console.error('Error en logout, usando método de emergencia');
+    
+    clearLocalData();
+    
+    // Calcular URL base para emergencia
+    const currentPath = window.location.pathname;
+    const pathSegments = currentPath.split('/');
+    
+    while (pathSegments.length > 0 && pathSegments[pathSegments.length - 1] !== 'servicio_social_ita') {
+        pathSegments.pop();
+    }
+    
+    if (pathSegments.length === 0) {
+        pathSegments.push('servicio_social_ita');
+    }
+    
+    const baseUrl = window.location.origin + pathSegments.join('/') + '/';
+    
+    // Redirección de emergencia
+    window.location.href = baseUrl + 'auth/logout.php?action=emergency';
+}
+
+// Limpiar datos locales
+function clearLocalData() {
+    try {
+        const keysToRemove = [
+            'user_preferences', 'dashboard_cache', 'form_drafts',
+            'auth_token', 'user_session', 'ita_social_session', 'remember_token'
+        ];
+        
+        keysToRemove.forEach(key => {
+            try {
+                localStorage.removeItem(key);
+            } catch (e) {
+                console.warn('Error removiendo', key, ':', e);
+            }
+        });
+        
+        try {
+            sessionStorage.clear();
+        } catch (e) {
+            console.warn('Error limpiando sessionStorage:', e);
+        }
+        
+        console.log('Datos locales limpiados');
+    } catch (error) {
+        console.error('Error limpiando datos locales:', error);
+    }
+}
+
+// Mostrar mensaje temporal
+function showTempMessage(message, type = 'info') {
+    const messageEl = document.createElement('div');
+    messageEl.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#3b82f6'};
+        color: white;
+        padding: 1rem 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        z-index: 9999;
+        font-weight: 500;
+    `;
+    messageEl.textContent = message;
+    
+    document.body.appendChild(messageEl);
+    
+    setTimeout(() => {
+        if (messageEl.parentNode) {
+            messageEl.parentNode.removeChild(messageEl);
+        }
+    }, 3000);
+}
+
+// Event listeners cuando el DOM esté listo
 document.addEventListener('DOMContentLoaded', function() {
     // Mobile menu toggle
     const mobileMenuToggle = document.getElementById('mobileMenuToggle');
     const sidebar = document.querySelector('.app-sidebar');
-    const mobileOverlay = document.getElementById('mobileOverlay');
     
     if (mobileMenuToggle && sidebar) {
         mobileMenuToggle.addEventListener('click', function() {
             this.classList.toggle('active');
             sidebar.classList.toggle('mobile-open');
-            mobileOverlay.classList.toggle('active');
             document.body.classList.toggle('mobile-menu-open');
         });
     }
     
-    if (mobileOverlay) {
-        mobileOverlay.addEventListener('click', function() {
-            mobileMenuToggle.classList.remove('active');
-            sidebar.classList.remove('mobile-open');
-            this.classList.remove('active');
-            document.body.classList.remove('mobile-menu-open');
-        });
-    }
-    
-    // Notification dropdown
+    // Toggle de dropdown de notificaciones
     const notificationTrigger = document.getElementById('notificationTrigger');
     const notificationDropdown = notificationTrigger?.parentElement;
     
@@ -1134,42 +1110,45 @@ document.addEventListener('DOMContentLoaded', function() {
         notificationTrigger.addEventListener('click', function(e) {
             e.stopPropagation();
             notificationDropdown.classList.toggle('active');
-            // Close user menu if open
+            // Cerrar user menu si está abierto
             document.querySelector('.user-dropdown')?.classList.remove('active');
         });
     }
     
-    // User dropdown
+    // Toggle de dropdown de usuario
     const userTrigger = document.getElementById('userTrigger');
-    const userDropdown = userTrigger?.parentElement;
+    const userDropdown = document.getElementById('userDropdown');
     
-    if (userTrigger) {
+    if (userTrigger && userDropdown) {
         userTrigger.addEventListener('click', function(e) {
             e.stopPropagation();
             userDropdown.classList.toggle('active');
-            // Close notification menu if open
+            // Cerrar notification menu si está abierto
             document.querySelector('.notification-dropdown')?.classList.remove('active');
         });
     }
     
-    // Close dropdowns when clicking outside
+    // Cerrar dropdowns al hacer clic fuera
     document.addEventListener('click', function() {
+        if (userDropdown) {
+            userDropdown.classList.remove('active');
+        }
         document.querySelector('.notification-dropdown')?.classList.remove('active');
-        document.querySelector('.user-dropdown')?.classList.remove('active');
     });
     
-    // Mark all notifications as read
-    const markAllReadBtn = document.querySelector('.mark-all-read');
-    if (markAllReadBtn) {
-        markAllReadBtn.addEventListener('click', function() {
-            const unreadItems = document.querySelectorAll('.notification-item.unread');
-            unreadItems.forEach(item => item.classList.remove('unread'));
-            
-            const badge = document.getElementById('notificationBadge');
-            if (badge) {
-                badge.style.display = 'none';
-            }
-        });
+    // Cerrar modal con Escape
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeLogoutModal();
+        }
+    });
+    
+    // Auto-hide flash messages
+    const flashMessage = document.getElementById('flashMessage');
+    if (flashMessage) {
+        setTimeout(() => {
+            flashMessage.remove();
+        }, 5000);
     }
     
     // Header scroll effect
@@ -1185,460 +1164,36 @@ document.addEventListener('DOMContentLoaded', function() {
         lastScrollY = window.scrollY;
     });
     
-    // Search functionality (placeholder)
-    const searchInput = document.getElementById('globalSearch');
-    if (searchInput) {
-        searchInput.addEventListener('input', function(e) {
-            const query = e.target.value;
-            // Implementar búsqueda global aquí
-            console.log('Búsqueda:', query);
-        });
-    }
-});
-
-// ============================
-// FUNCIONES DE LOGOUT MEJORADAS
-// ============================
-
-/**
- * Función principal para iniciar el logout
- */
-function performSecureLogout() {
-    console.log('Iniciando logout seguro...');
-    
-    // Cerrar menú de usuario
-    document.querySelector('.user-dropdown')?.classList.remove('active');
-    
-    // Mostrar modal de confirmación
-    showLogoutModal();
-}
-
-/**
- * Mostrar modal de confirmación
- */
-function showLogoutModal() {
-    const modal = document.getElementById('logoutModal');
-    const overlay = document.getElementById('logoutModalOverlay');
-    
-    if (modal && overlay) {
-        modal.classList.add('active');
-        overlay.classList.add('active');
-        document.body.style.overflow = 'hidden';
-        
-        // Focus en el botón de cancelar para accesibilidad
-        setTimeout(() => {
-            const cancelBtn = modal.querySelector('.btn-secondary');
-            cancelBtn?.focus();
-        }, 100);
-    }
-}
-
-/**
- * Cerrar modal de confirmación
- */
-function closeLogoutModal() {
-    const modal = document.getElementById('logoutModal');
-    const overlay = document.getElementById('logoutModalOverlay');
-    
-    if (modal && overlay) {
-        modal.classList.remove('active');
-        overlay.classList.remove('active');
-        document.body.style.overflow = '';
-    }
-}
-
-/**
- * Confirmar y ejecutar logout
- */
-async function confirmLogout() {
-    const confirmBtn = document.getElementById('confirmLogoutBtn');
-    
-    try {
-        // Mostrar estado de carga
-        if (confirmBtn) {
-            confirmBtn.classList.add('loading');
-            confirmBtn.disabled = true;
-        }
-
-        console.log('Ejecutando logout...');
-
-        // Obtener la URL base dinámicamente
-        const baseUrl = window.location.protocol + '//' + window.location.host + 
-                       window.location.pathname.split('/').slice(0, -2).join('/') + '/';
-        const logoutUrl = baseUrl + 'auth/logout.php';
-
-        console.log('URL de logout:', logoutUrl);
-        console.log('URL base calculada:', baseUrl);
-
-        // Preparar datos para la petición
-        const formData = new FormData();
-        formData.append('action', 'confirm_logout');
-
-        // Realizar petición AJAX con timeout
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 segundos timeout
-
-        const response = await fetch(logoutUrl, {
-            method: 'POST',
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            body: formData,
-            credentials: 'same-origin',
-            cache: 'no-cache',
-            signal: controller.signal
-        });
-
-        clearTimeout(timeoutId);
-
-        console.log('Response status:', response.status);
-        console.log('Response headers:', [...response.headers.entries()]);
-        
-        // Verificar el Content-Type
-        const contentType = response.headers.get('content-type');
-        console.log('Content-Type:', contentType);
-
-        if (!response.ok) {
-            throw new Error(`Error del servidor: ${response.status} ${response.statusText}`);
-        }
-
-        let data;
-        if (contentType && contentType.includes('application/json')) {
-            data = await response.json();
-            console.log('Logout response:', data);
-        } else {
-            // Si no es JSON, obtener texto para debugging
-            const textResponse = await response.text();
-            console.warn('Respuesta no es JSON:', textResponse.substring(0, 500));
-            
-            // Crear objeto de respuesta manual
-            data = {
-                success: true,
-                message: 'Logout procesado (respuesta no-JSON)',
-                redirect: baseUrl + 'index.php'
-            };
-        }
-
-        // Manejar respuesta exitosa
-        await handleLogoutSuccess(data);
-
-    } catch (error) {
-        console.error('Error en logout:', error);
-        
-        if (error.name === 'AbortError') {
-            console.log('Logout timeout - procediendo con logout forzado');
-            await handleLogoutTimeout();
-        } else {
-            await handleLogoutError(error);
-        }
-    }
-}
-
-/**
- * Manejar logout exitoso
- */
-async function handleLogoutSuccess(data) {
-    console.log('Logout exitoso:', data.message);
-    
-    // Cerrar modal
-    closeLogoutModal();
-    
-    // Limpiar datos locales
-    await clearLocalData();
-    
-    // Mostrar mensaje temporal
-    showLogoutSuccessMessage(data.message);
-    
-    // Determinar URL de redirección
-    let redirectUrl = data.redirect;
-    if (!redirectUrl) {
-        // Calcular URL base si no viene en la respuesta
-        const baseUrl = window.location.protocol + '//' + window.location.host + 
-                       window.location.pathname.split('/').slice(0, -2).join('/') + '/';
-        redirectUrl = baseUrl + 'index.php';
-    }
-    
-    console.log('Redirigiendo a:', redirectUrl);
-    
-    // Redirigir después de un momento
-    setTimeout(() => {
-        window.location.href = redirectUrl;
-    }, 1500);
-}
-
-/**
- * Manejar timeout de logout
- */
-async function handleLogoutTimeout() {
-    console.log('Timeout en logout - ejecutando logout forzado');
-    
-    // Limpiar datos locales inmediatamente
-    await clearLocalData();
-    
-    // Cerrar modal
-    closeLogoutModal();
-    
-    // Mostrar mensaje
-    showLogoutSuccessMessage('Cerrando sesión (timeout)...');
-    
-    // Calcular URL base
-    const baseUrl = window.location.protocol + '//' + window.location.host + 
-                   window.location.pathname.split('/').slice(0, -2).join('/') + '/';
-    
-    // Intentar logout forzado en background
-    fetch(baseUrl + 'auth/logout.php?action=force', { 
-        method: 'GET',
-        credentials: 'same-origin'
-    }).catch(() => {}); // Ignorar errores
-    
-    // Redirigir independientemente
-    setTimeout(() => {
-        window.location.href = baseUrl + 'index.php?logout=timeout';
-    }, 2000);
-}
-
-/**
- * Manejar errores de logout
- */
-async function handleLogoutError(error) {
-    console.error('Error manejando logout:', error);
-    
-    // Resetear botón
-    const confirmBtn = document.getElementById('confirmLogoutBtn');
-    if (confirmBtn) {
-        confirmBtn.classList.remove('loading');
-        confirmBtn.disabled = false;
-    }
-    
-    // Mostrar error en el modal
-    showLogoutError(error.message);
-    
-    // Ofrecer logout forzado después de 3 segundos
-    setTimeout(() => {
-        addForceLogoutOption();
-    }, 3000);
-}
-
-/**
- * Mostrar mensaje de éxito
- */
-function showLogoutSuccessMessage(message) {
-    const modal = document.getElementById('logoutModal');
-    if (modal) {
-        modal.innerHTML = `
-            <div class="logout-modal-content">
-                <div class="logout-modal-header">
-                    <div class="logout-icon" style="background: linear-gradient(135deg, var(--success), #34d399);">
-                        <i class="fas fa-check"></i>
-                    </div>
-                    <h3>¡Sesión Cerrada!</h3>
-                    <p>${message || 'Tu sesión se ha cerrado correctamente'}</p>
-                </div>
-                <div class="logout-modal-actions">
-                    <div style="display: flex; align-items: center; gap: 1rem; color: var(--text-secondary); justify-content: center;">
-                        <div class="loading" style="width: 20px; height: 20px;"></div>
-                        <span>Redirigiendo a página principal...</span>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-}
-
-/**
- * Mostrar error en el modal
- */
-function showLogoutError(message) {
-    const modal = document.getElementById('logoutModal');
-    if (modal) {
-        const content = modal.querySelector('.logout-modal-header p');
-        if (content) {
-            content.innerHTML = `
-                <div style="color: var(--text-secondary); margin-bottom: 1rem;">
-                    Ocurrió un problema durante el logout.
-                </div>
-                <div style="color: var(--error); font-size: 0.9rem; padding: 1rem; background: rgba(239, 68, 68, 0.1); border-radius: 8px;">
-                    <strong>Error:</strong> ${message}
-                </div>
-            `;
-        }
-    }
-}
-
-/**
- * Agregar opción de logout forzado
- */
-function addForceLogoutOption() {
-    const actions = document.querySelector('.logout-modal-actions');
-    if (actions && !actions.querySelector('.btn-warning')) {
-        const forceBtn = document.createElement('button');
-        forceBtn.className = 'btn btn-warning';
-        forceBtn.innerHTML = '<i class="fas fa-power-off"></i> Forzar Cierre de Sesión';
-        forceBtn.onclick = forceLogout;
-        
-        // Limpiar acciones actuales y agregar nuevo botón
-        actions.innerHTML = '';
-        actions.appendChild(forceBtn);
-        
-        const cancelBtn = document.createElement('button');
-        cancelBtn.className = 'btn btn-secondary';
-        cancelBtn.innerHTML = '<i class="fas fa-times"></i> Cancelar';
-        cancelBtn.onclick = closeLogoutModal;
-        
-        actions.appendChild(cancelBtn);
-    }
-}
-
-/**
- * Logout forzado
- */
-async function forceLogout() {
-    console.log('Ejecutando logout forzado...');
-    
-    // Cerrar modal
-    closeLogoutModal();
-    
-    // Limpiar datos locales
-    await clearLocalData();
-    
-    // Mostrar mensaje
-    showLogoutSuccessMessage('Cerrando sesión de forma forzada...');
-    
-    // Calcular URL base
-    const baseUrl = window.location.protocol + '//' + window.location.host + 
-                   window.location.pathname.split('/').slice(0, -2).join('/') + '/';
-    
-    // Intentar múltiples endpoints en paralelo
-    const cleanupPromises = [
-        fetch(baseUrl + 'auth/logout.php?action=force', { 
-            method: 'GET',
-            credentials: 'same-origin'
-        }).catch(() => {}),
-        fetch(baseUrl + 'auth/logout.php?action=immediate', { 
-            method: 'GET',
-            credentials: 'same-origin'
-        }).catch(() => {}),
-        fetch(baseUrl + 'auth/logout.php?action=emergency', { 
-            method: 'GET',
-            credentials: 'same-origin'
-        }).catch(() => {})
-    ];
-    
-    // Esperar máximo 3 segundos
-    Promise.race([
-        Promise.allSettled(cleanupPromises),
-        new Promise(resolve => setTimeout(resolve, 3000))
-    ]).finally(() => {
-        // Redirigir independientemente del resultado
-        window.location.href = baseUrl + 'index.php?logout=forced';
-    });
-}
-
-/**
- * Limpiar datos locales del navegador
- */
-async function clearLocalData() {
-    try {
-        console.log('Limpiando datos locales...');
-        
-        // Limpiar localStorage
-        const keysToRemove = [
-            'user_preferences',
-            'dashboard_cache',
-            'form_drafts',
-            'auth_token',
-            'user_session',
-            'ita_social_session',
-            'remember_token',
-            'user_data',
-            'app_settings'
-        ];
-        
-        keysToRemove.forEach(key => {
-            try {
-                localStorage.removeItem(key);
-            } catch (e) {
-                console.warn(`Error removiendo ${key}:`, e);
-            }
-        });
-        
-        // Limpiar sessionStorage completamente
-        try {
-            sessionStorage.clear();
-        } catch (e) {
-            console.warn('Error limpiando sessionStorage:', e);
-        }
-        
-        console.log('Datos locales limpiados correctamente');
-        
-    } catch (error) {
-        console.error('Error general limpiando datos locales:', error);
-    }
-}
-
-// Event Listeners mejorados para el modal
-document.addEventListener('DOMContentLoaded', function() {
-    // Cerrar modal con Escape
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            closeLogoutModal();
-        }
-    });
-    
-    // Cerrar modal clickeando el overlay
-    const overlay = document.getElementById('logoutModalOverlay');
-    if (overlay) {
-        overlay.addEventListener('click', closeLogoutModal);
-    }
-    
-    // Manejo de errores globales para el logout
-    window.addEventListener('error', function(e) {
-        if (e.message.includes('logout') || e.filename.includes('logout')) {
-            console.error('Error global en logout:', e);
-        }
-    });
-    
-    // Prevenir múltiples llamadas de logout
-    let logoutInProgress = false;
-    const originalPerformSecureLogout = window.performSecureLogout;
-    window.performSecureLogout = function() {
-        if (logoutInProgress) {
-            console.log('Logout ya en progreso, ignorando llamada adicional');
-            return;
-        }
-        logoutInProgress = true;
-        originalPerformSecureLogout();
-        setTimeout(() => {
-            logoutInProgress = false;
-        }, 5000);
-    };
+    console.log('Sistema de logout simplificado iniciado');
 });
 
 // Función de emergencia accesible globalmente
 window.emergencyLogout = function() {
-    const baseUrl = window.location.protocol + '//' + window.location.host + 
-                   window.location.pathname.split('/').slice(0, -2).join('/') + '/';
+    clearLocalData();
+    const currentPath = window.location.pathname;
+    const pathSegments = currentPath.split('/');
     
-    // Limpiar todo lo posible
-    try {
-        localStorage.clear();
-        sessionStorage.clear();
-    } catch(e) {}
+    while (pathSegments.length > 0 && pathSegments[pathSegments.length - 1] !== 'servicio_social_ita') {
+        pathSegments.pop();
+    }
     
-    // Redirigir inmediatamente
-    window.location.href = baseUrl + 'index.php?logout=emergency';
+    if (pathSegments.length === 0) {
+        pathSegments.push('servicio_social_ita');
+    }
+    
+    const baseUrl = window.location.origin + pathSegments.join('/') + '/';
+    window.location.href = baseUrl + 'auth/logout.php?action=emergency';
 };
 
-// Exponer funciones globalmente para debugging y uso manual
-window.logoutSystem = {
-    performSecureLogout,
-    showLogoutModal,
-    closeLogoutModal,
-    confirmLogout,
-    forceLogout,
-    clearLocalData,
-    emergencyLogout: window.emergencyLogout
+// Prevenir múltiples llamadas de logout
+const originalExecuteLogout = window.executeLogout;
+window.executeLogout = function() {
+    if (logoutInProgress) {
+        console.log('Logout ya en progreso');
+        return;
+    }
+    return originalExecuteLogout();
 };
 
-console.log('Sistema de logout mejorado cargado correctamente');
+console.log('Sistema de logout cargado correctamente');
 </script>
