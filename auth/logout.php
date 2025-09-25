@@ -176,7 +176,7 @@ function performLogout() {
         foreach ($systemCookies as $cookieName) {
             if (isset($_COOKIE[$cookieName])) {
                 // Limpiar en múltiples paths para asegurar eliminación
-                $paths = ['/', '/SERVICIO_SOCIAL_ITA/', '/dashboard/', '/auth/', '/modules/', '/includes/'];
+                $paths = ['/', '/servicio_social_ita/', '/dashboard/', '/auth/', '/modules/', '/includes/'];
                 
                 foreach ($paths as $path) {
                     setcookie($cookieName, '', time() - 3600, $path);
@@ -248,7 +248,7 @@ try {
                         $name = trim($parts[0]);
                         if ($name) {
                             // Limpiar en múltiples paths
-                            $paths = ['/', '/SERVICIO_SOCIAL_ITA/', '/dashboard/', '/auth/', '/modules/'];
+                            $paths = ['/', '/servicio_social_ita/', '/dashboard/', '/auth/', '/modules/'];
                             foreach ($paths as $path) {
                                 setcookie($name, '', time() - 3600, $path);
                             }

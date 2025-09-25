@@ -70,7 +70,7 @@ $historialEstados = $db->fetchAll("
 // Procesar acciones de aprobación/rechazo
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $accion = $_POST['accion'] ?? '';
-    $observaciones_jefe = trim($_POST['observaciones'] ?? '');
+    $observaciones_jefe = trim($_POST['observaciones'] ?? ''); // CORREGIDO: usar nombre consistente
     $motivo_rechazo = trim($_POST['motivo_rechazo'] ?? '');
     
     // Debug temporal - remover en producción
@@ -84,7 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Aprobar solicitud
                 $updateResult = $db->update('solicitudes_servicio', [
                     'estado' => 'aprobada',
-                    'observaciones_jefe' => $observaciones,
+                    'observaciones_jefe' => $observaciones_jefe, // CORREGIDO: usar variable correcta
                     'aprobada_por' => $usuario['id'],
                     'fecha_aprobacion' => date('Y-m-d H:i:s')
                 ], 'id = :id', ['id' => $solicitudId]);
@@ -149,7 +149,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $updateResult = $db->update('solicitudes_servicio', [
                     'estado' => 'rechazada',
                     'motivo_rechazo' => $motivo_rechazo,
-                    'observaciones_jefe' => $observaciones
+                    'observaciones_jefe' => $observaciones_jefe // CORREGIDO: usar variable correcta
                 ], 'id = :id', ['id' => $solicitudId]);
                 
                 if (!$updateResult) {
@@ -281,6 +281,8 @@ function getEstadoTitle($estado) {
         default: return 'Estado Desconocido';
     }
 }
+
+// Función helper para formatear el estado del texto
 
 
 $pageTitle = "Detalle de Solicitud - " . APP_NAME;
