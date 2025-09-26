@@ -209,6 +209,15 @@ function flashMessage($message, $type = 'info') {
     $_SESSION['flash_type'] = $type;
 }
 
+function getFlashMessage() {
+    if (isset($_SESSION['flash_message'])) {
+        $message = $_SESSION['flash_message'];
+        $type = $_SESSION['flash_type'] ?? 'info';
+        unset($_SESSION['flash_message'], $_SESSION['flash_type']);
+        return ['message' => $message, 'type' => $type];
+    }
+    return null;
+}
 
 function isAjaxRequest() {
     return !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && 

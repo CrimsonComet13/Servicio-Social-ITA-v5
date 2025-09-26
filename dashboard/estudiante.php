@@ -26,15 +26,21 @@ if (!$usuario || !isset($usuario['id'])) {
     exit();
 }
 
-// Obtener datos del estudiante
+// Obtener datos del estudiante - VERIFICAR RESULTADO
 $estudiante = $db->fetch("
     SELECT e.*, u.email 
     FROM estudiantes e 
     JOIN usuarios u ON e.usuario_id = u.id 
     WHERE e.usuario_id = ?
-", [$estudianteId]);
+", [$estudianteId]) ?: [];
 
-// Obtener solicitud activa
+// Si no se encuentra el estudiante, redirigir
+if (!$estudiante || !isset($estudiante['id'])) {
+    header("Location: ../auth/login.php");
+    exit();
+}
+
+// Obtener solicitud activa - VERIFICAR RESULTADO
 $solicitudActiva = $db->fetch("
     SELECT s.*, p.nombre_proyecto, jl.nombre as jefe_lab_nombre, jl.laboratorio,
            jd.nombre as jefe_depto_nombre
@@ -46,9 +52,9 @@ $solicitudActiva = $db->fetch("
     AND s.estado IN ('pendiente', 'aprobada', 'en_proceso')
     ORDER BY s.fecha_solicitud DESC
     LIMIT 1
-", ['estudiante_id' => $estudiante['id']]);
+", ['estudiante_id' => $estudiante['id']]) ?: null;
 
-// Obtener reportes pendientes
+// Obtener reportes pendientes - SOLO SI HAY SOLICITUD ACTIVA
 $reportesPendientes = [];
 if ($solicitudActiva && $solicitudActiva['estado'] === 'en_proceso') {
     $reportesPendientes = $db->fetchAll("
@@ -57,10 +63,10 @@ if ($solicitudActiva && $solicitudActiva['estado'] === 'en_proceso') {
         WHERE r.solicitud_id = :solicitud_id
         AND r.estado = 'pendiente_evaluacion'
         ORDER BY r.numero_reporte
-    ", ['solicitud_id' => $solicitudActiva['id']]);
+    ", ['solicitud_id' => $solicitudActiva['id']]) ?: [];
 }
 
-// Obtener documentos recientes
+// Obtener documentos recientes - VERIFICAR RESULTADOS
 $documentos = [];
 
 // Oficios
@@ -71,7 +77,7 @@ $oficios = $db->fetchAll("
     WHERE s.estudiante_id = :estudiante_id
     ORDER BY fecha_emision DESC
     LIMIT 3
-", ['estudiante_id' => $estudiante['id']]);
+", ['estudiante_id' => $estudiante['id']]) ?: [];
 
 // Constancias
 $constancias = $db->fetchAll("
@@ -80,31 +86,31 @@ $constancias = $db->fetchAll("
     WHERE estudiante_id = :estudiante_id
     ORDER BY fecha_emision DESC
     LIMIT 3
-", ['estudiante_id' => $estudiante['id']]);
+", ['estudiante_id' => $estudiante['id']]) ?: [];
 
 $documentos = array_merge($oficios, $constancias);
 
 // Calcular estadísticas
 $horasRequeridas = 500;
 $horasCompletadas = $estudiante['horas_completadas'] ?? 0;
-$progreso = min(100, ($horasCompletadas / $horasRequeridas) * 100);
+$progreso = $horasRequeridas > 0 ? min(100, ($horasCompletadas / $horasRequeridas) * 100) : 0;
 
-// Obtener estadísticas adicionales
+// Obtener estadísticas adicionales - VERIFICAR RESULTADOS
 $totalReportesResult = $db->fetch("
     SELECT COUNT(*) as total
     FROM reportes_bimestrales r
     JOIN solicitudes_servicio s ON r.solicitud_id = s.id
     WHERE s.estudiante_id = :estudiante_id
-", ['estudiante_id' => $estudiante['id']]);
-$totalReportes = $totalReportesResult ? $totalReportesResult['total'] : 0;
+", ['estudiante_id' => $estudiante['id']]) ?: ['total' => 0];
+$totalReportes = $totalReportesResult['total'];
 
 $reportesAprobadosResult = $db->fetch("
     SELECT COUNT(*) as total
     FROM reportes_bimestrales r
     JOIN solicitudes_servicio s ON r.solicitud_id = s.id
     WHERE s.estudiante_id = :estudiante_id AND r.estado = 'aprobado'
-", ['estudiante_id' => $estudiante['id']]);
-$reportesAprobados = $reportesAprobadosResult ? $reportesAprobadosResult['total'] : 0;
+", ['estudiante_id' => $estudiante['id']]) ?: ['total' => 0];
+$reportesAprobados = $reportesAprobadosResult['total'];
 
 // Funciones helper para el nuevo diseño
 function getEstadoCssClass($estado) {
@@ -134,6 +140,18 @@ function getEstadoTitle($estado) {
         case 'en_proceso': return 'Servicio Social en Proceso';
         case 'completado': return 'Servicio Social Completado';
         default: return 'Estado del Servicio';
+    }
+}
+
+// FUNCIÓN FALTANTE - AGREGAR
+function getEstadoText($estado) {
+    switch($estado) {
+        case 'sin_solicitud': return 'Sin Solicitud Activa';
+        case 'pendiente': return 'En Revisión';
+        case 'aprobada': return 'Aprobada - Lista para comenzar';
+        case 'en_proceso': return 'En Proceso - Activo';
+        case 'completado': return 'Completado - Finalizado';
+        default: return 'Estado no definido';
     }
 }
 
@@ -170,16 +188,16 @@ include '../includes/sidebar.php';
     <!-- NUEVO DISEÑO DE STATUS OVERVIEW -->
     <div class="status-overview-redesign">
         <!-- Estado del Servicio - Tarjeta Principal -->
-        <div class="service-status-card <?= getEstadoCssClass($estudiante['estado_servicio']) ?>">
+        <div class="service-status-card <?= getEstadoCssClass($estudiante['estado_servicio'] ?? 'sin_solicitud') ?>">
             <div class="service-status-content">
                 <div class="service-status-icon">
-                    <i class="fas fa-<?= getEstadoIcon($estudiante['estado_servicio']) ?>"></i>
+                    <i class="fas fa-<?= getEstadoIcon($estudiante['estado_servicio'] ?? 'sin_solicitud') ?>"></i>
                 </div>
                 <div class="service-status-info">
-                    <h2 class="service-status-title"><?= getEstadoTitle($estudiante['estado_servicio']) ?></h2>
+                    <h2 class="service-status-title"><?= getEstadoTitle($estudiante['estado_servicio'] ?? 'sin_solicitud') ?></h2>
                     <div class="service-status-badge">
                         <i class="fas fa-check-circle"></i>
-                        <span><?= getEstadoText($estudiante['estado_servicio']) ?></span>
+                        <span><?= getEstadoText($estudiante['estado_servicio'] ?? 'sin_solicitud') ?></span>
                     </div>
                     <?php if ($solicitudActiva): ?>
                     <div class="service-project-info">
@@ -362,7 +380,7 @@ include '../includes/sidebar.php';
                         <a href="/servicio_social_ita/modules/estudiantes/reportes.php" class="btn btn-primary">
                             <?= !empty($reportesPendientes) ? 'Entregar Reportes' : 'Gestionar Reportes' ?>
                         </a>
-                        <a href=/servicio_social_ita/modules/estudiantes/horas.php" class="btn btn-secondary">
+                        <a href="/servicio_social_ita/modules/estudiantes/horas.php" class="btn btn-secondary">
                             Registrar Horas
                         </a>
                     </div>
@@ -534,6 +552,8 @@ include '../includes/sidebar.php';
     </div>
 </div>
 </div> <!-- .main-wrapper -->
+
+<!-- El resto del código CSS y JavaScript permanece igual -->
 
 <style>
 /* Variables CSS */
@@ -1596,38 +1616,6 @@ include '../includes/sidebar.php';
     
     .progress-value {
         font-size: 1.25rem;
-    }
-}
-
-/* Variables sidebar */
-:root {
-    --sidebar-width: 280px;
-    --header-height: 70px;
-}
-
-/* Main wrapper con margen para sidebar */
-.main-wrapper {
-    margin-left: var(--sidebar-width);
-    min-height: calc(100vh - var(--header-height));
-    transition: margin-left 0.3s ease;
-}
-
-/* Dashboard container ajustado */
-.dashboard-container {
-    max-width: calc(1400px - var(--sidebar-width));
-    margin: 0 auto;
-    width: 100%;
-    box-sizing: border-box;
-}
-
-/* Responsive: En móvil sidebar se oculta */
-@media (max-width: 1024px) {
-    .main-wrapper {
-        margin-left: 0;
-    }
-    
-    .dashboard-container {
-        max-width: 1400px;
     }
 }
 </style>
