@@ -25,7 +25,7 @@ if (!$usuario || !isset($usuario['id'])) {
     exit();
 }
 
-// FIX TEMPORAL: Corregir ID para email específico con problema de sesión
+// FIX DE SESIÓN: Corregir ID para email específico con problema de sesión
 if ($usuario['email'] === '123455@gmail.com' && $usuario['id'] == 3) {
     $estudianteId = 4; // ID correcto según la base de datos
     $sessionFixed = true;
@@ -36,20 +36,28 @@ if ($usuario['email'] === '123455@gmail.com' && $usuario['id'] == 3) {
 
 // Mostrar mensaje de fix si se aplicó
 if ($sessionFixed) {
-    echo "<div style='background: #d4edda; padding: 15px; margin: 10px; border: 1px solid #c3e6cb; border-radius: 5px; color: #155724;'>";
-    echo "<strong>🔧 Fix de Sesión Aplicado:</strong> Se detectó un problema con el ID de usuario en la sesión. ";
-    echo "Usando usuario_id = 4 en lugar de 3 para el email {$usuario['email']}. ";
-    echo "<small>(Recomendación: Hacer logout/login para corregir permanentemente)</small>";
-    echo "</div>";
+    $fixMessage = [
+        'show' => true,
+        'email' => $usuario['email'],
+        'oldId' => $usuario['id'],
+        'newId' => $estudianteId
+    ];
+} else {
+    $fixMessage = ['show' => false];
 }
 
-// Obtener datos del estudiante
-$estudiante = $db->fetch("
-    SELECT e.*, u.email 
-    FROM estudiantes e 
-    JOIN usuarios u ON e.usuario_id = u.id 
-    WHERE e.usuario_id = ?
-", [$estudianteId]) ?: [];
+// Obtener datos del estudiante con manejo de errores
+try {
+    $estudiante = $db->fetch("
+        SELECT e.*, u.email 
+        FROM estudiantes e 
+        JOIN usuarios u ON e.usuario_id = u.id 
+        WHERE e.usuario_id = ?
+    ", [$estudianteId]) ?: [];
+} catch (Exception $e) {
+    error_log("Error al obtener datos del estudiante: " . $e->getMessage());
+    $estudiante = [];
+}
 
 // Si no se encuentra el estudiante, redirigir
 if (!$estudiante || !isset($estudiante['id'])) {
@@ -57,105 +65,171 @@ if (!$estudiante || !isset($estudiante['id'])) {
     exit();
 }
 
-// Obtener solicitud activa
-$solicitudActiva = $db->fetch("
-    SELECT s.*, p.nombre_proyecto, jl.nombre as jefe_lab_nombre, jl.laboratorio,
-           jd.nombre as jefe_depto_nombre
-    FROM solicitudes_servicio s
-    JOIN proyectos_laboratorio p ON s.proyecto_id = p.id
-    LEFT JOIN jefes_laboratorio jl ON s.jefe_laboratorio_id = jl.id
-    JOIN jefes_departamento jd ON s.jefe_departamento_id = jd.id
-    WHERE s.estudiante_id = :estudiante_id 
-    AND s.estado IN ('pendiente', 'aprobada', 'en_proceso')
-    ORDER BY s.fecha_solicitud DESC
-    LIMIT 1
-", ['estudiante_id' => $estudiante['id']]) ?: null;
+// Obtener solicitud activa con manejo de errores
+try {
+    $solicitudActiva = $db->fetch("
+        SELECT s.*, p.nombre_proyecto, jl.nombre as jefe_lab_nombre, jl.laboratorio,
+               jd.nombre as jefe_depto_nombre
+        FROM solicitudes_servicio s
+        JOIN proyectos_laboratorio p ON s.proyecto_id = p.id
+        LEFT JOIN jefes_laboratorio jl ON s.jefe_laboratorio_id = jl.id
+        JOIN jefes_departamento jd ON s.jefe_departamento_id = jd.id
+        WHERE s.estudiante_id = :estudiante_id 
+        AND s.estado IN ('pendiente', 'aprobada', 'en_proceso')
+        ORDER BY s.fecha_solicitud DESC
+        LIMIT 1
+    ", ['estudiante_id' => $estudiante['id']]) ?: null;
+} catch (Exception $e) {
+    error_log("Error al obtener solicitud activa: " . $e->getMessage());
+    $solicitudActiva = null;
+}
 
 // Obtener reportes pendientes - SOLO SI HAY SOLICITUD ACTIVA
 $reportesPendientes = [];
 if ($solicitudActiva && $solicitudActiva['estado'] === 'en_proceso') {
-    $reportesPendientes = $db->fetchAll("
-        SELECT r.* 
-        FROM reportes_bimestrales r
-        WHERE r.solicitud_id = :solicitud_id
-        AND r.estado = 'pendiente_evaluacion'
-        ORDER BY r.numero_reporte
-    ", ['solicitud_id' => $solicitudActiva['id']]) ?: [];
+    try {
+        $reportesPendientes = $db->fetchAll("
+            SELECT r.* 
+            FROM reportes_bimestrales r
+            WHERE r.solicitud_id = :solicitud_id
+            AND r.estado = 'pendiente_evaluacion'
+            ORDER BY r.numero_reporte
+        ", ['solicitud_id' => $solicitudActiva['id']]) ?: [];
+    } catch (Exception $e) {
+        error_log("Error al obtener reportes pendientes: " . $e->getMessage());
+        $reportesPendientes = [];
+    }
 }
 
-// Obtener documentos recientes
+// Obtener documentos recientes con manejo de errores
 $documentos = [];
+try {
+    // Oficios
+    $oficios = $db->fetchAll("
+        SELECT 'oficio' as tipo, numero_oficio as numero, fecha_emision as fecha, archivo_path
+        FROM oficios_presentacion op
+        JOIN solicitudes_servicio s ON op.solicitud_id = s.id
+        WHERE s.estudiante_id = :estudiante_id
+        ORDER BY fecha_emision DESC
+        LIMIT 3
+    ", ['estudiante_id' => $estudiante['id']]) ?: [];
 
-// Oficios
-$oficios = $db->fetchAll("
-    SELECT 'oficio' as tipo, numero_oficio as numero, fecha_emision as fecha, archivo_path
-    FROM oficios_presentacion op
-    JOIN solicitudes_servicio s ON op.solicitud_id = s.id
-    WHERE s.estudiante_id = :estudiante_id
-    ORDER BY fecha_emision DESC
-    LIMIT 3
-", ['estudiante_id' => $estudiante['id']]) ?: [];
+    // Constancias
+    $constancias = $db->fetchAll("
+        SELECT 'constancia' as tipo, numero_constancia as numero, fecha_emision as fecha, archivo_path
+        FROM constancias
+        WHERE estudiante_id = :estudiante_id
+        ORDER BY fecha_emision DESC
+        LIMIT 3
+    ", ['estudiante_id' => $estudiante['id']]) ?: [];
 
-// Constancias
-$constancias = $db->fetchAll("
-    SELECT 'constancia' as tipo, numero_constancia as numero, fecha_emision as fecha, archivo_path
-    FROM constancias
-    WHERE estudiante_id = :estudiante_id
-    ORDER BY fecha_emision DESC
-    LIMIT 3
-", ['estudiante_id' => $estudiante['id']]) ?: [];
-
-$documentos = array_merge($oficios, $constancias);
+    $documentos = array_merge($oficios, $constancias);
+} catch (Exception $e) {
+    error_log("Error al obtener documentos: " . $e->getMessage());
+    $documentos = [];
+}
 
 // Calcular estadísticas
 $horasRequeridas = 500;
 $horasCompletadas = $estudiante['horas_completadas'] ?? 0;
 $progreso = $horasRequeridas > 0 ? min(100, ($horasCompletadas / $horasRequeridas) * 100) : 0;
 
-// Obtener estadísticas adicionales
-$totalReportesResult = $db->fetch("
-    SELECT COUNT(*) as total
-    FROM reportes_bimestrales r
-    JOIN solicitudes_servicio s ON r.solicitud_id = s.id
-    WHERE s.estudiante_id = :estudiante_id
-", ['estudiante_id' => $estudiante['id']]) ?: ['total' => 0];
-$totalReportes = $totalReportesResult['total'];
+// Obtener estadísticas adicionales con manejo de errores
+$totalReportes = 0;
+$reportesAprobados = 0;
 
-$reportesAprobadosResult = $db->fetch("
-    SELECT COUNT(*) as total
-    FROM reportes_bimestrales r
-    JOIN solicitudes_servicio s ON r.solicitud_id = s.id
-    WHERE s.estudiante_id = :estudiante_id AND r.estado = 'aprobado'
-", ['estudiante_id' => $estudiante['id']]) ?: ['total' => 0];
-$reportesAprobados = $reportesAprobadosResult['total'];
+try {
+    $totalReportesResult = $db->fetch("
+        SELECT COUNT(*) as total
+        FROM reportes_bimestrales r
+        JOIN solicitudes_servicio s ON r.solicitud_id = s.id
+        WHERE s.estudiante_id = :estudiante_id
+    ", ['estudiante_id' => $estudiante['id']]) ?: ['total' => 0];
+    $totalReportes = $totalReportesResult['total'];
+
+    $reportesAprobadosResult = $db->fetch("
+        SELECT COUNT(*) as total
+        FROM reportes_bimestrales r
+        JOIN solicitudes_servicio s ON r.solicitud_id = s.id
+        WHERE s.estudiante_id = :estudiante_id AND r.estado = 'aprobado'
+    ", ['estudiante_id' => $estudiante['id']]) ?: ['total' => 0];
+    $reportesAprobados = $reportesAprobadosResult['total'];
+} catch (Exception $e) {
+    error_log("Error al obtener estadísticas de reportes: " . $e->getMessage());
+}
+
+// Obtener actividades recientes reales
+$actividadesRecientes = [];
+try {
+    $actividadesRecientes = $db->fetchAll("
+        SELECT 
+            'reporte' as tipo,
+            CONCAT('Reporte ', r.numero_reporte, ' - ', r.estado) as titulo,
+            CONCAT('Entregado el ', DATE_FORMAT(r.fecha_entrega, '%d/%m/%Y')) as descripcion,
+            r.created_at as fecha,
+            r.estado
+        FROM reportes_bimestrales r
+        JOIN solicitudes_servicio s ON r.solicitud_id = s.id
+        WHERE s.estudiante_id = :estudiante_id
+        
+        UNION ALL
+        
+        SELECT 
+            'solicitud' as tipo,
+            CONCAT('Solicitud de servicio - ', s.estado) as titulo,
+            CONCAT('Proyecto: ', p.nombre_proyecto) as descripcion,
+            s.created_at as fecha,
+            s.estado
+        FROM solicitudes_servicio s
+        JOIN proyectos_laboratorio p ON s.proyecto_id = p.id
+        WHERE s.estudiante_id = :estudiante_id
+        
+        ORDER BY fecha DESC
+        LIMIT 5
+    ", ['estudiante_id' => $estudiante['id']]) ?: [];
+} catch (Exception $e) {
+    error_log("Error al obtener actividades recientes: " . $e->getMessage());
+    $actividadesRecientes = [];
+}
 
 // Funciones helper para el diseño
 function getEstadoCssClass($estado) {
     switch($estado) {
-        case 'pendiente': return 'pending';
-        case 'aprobada': return 'approved';
+        case 'pendiente': 
+        case 'solicitud_pendiente': return 'pending';
+        case 'aprobada': 
+        case 'aprobado': return 'approved';
         case 'en_proceso': return 'in-progress';
-        case 'completado': return 'completed';
+        case 'completado': 
+        case 'concluido': return 'completed';
         default: return 'pending';
     }
 }
 
 function getEstadoIcon($estado) {
     switch($estado) {
-        case 'pendiente': return 'hourglass-half';
-        case 'aprobada': return 'check-circle';
+        case 'sin_solicitud': return 'plus-circle';
+        case 'pendiente': 
+        case 'solicitud_pendiente': return 'hourglass-half';
+        case 'aprobada': 
+        case 'aprobado': return 'check-circle';
         case 'en_proceso': return 'play-circle';
-        case 'completado': return 'trophy';
+        case 'completado': 
+        case 'concluido': return 'trophy';
         default: return 'question-circle';
     }
 }
 
 function getEstadoTitle($estado) {
     switch($estado) {
-        case 'pendiente': return 'Solicitud en Revisión';
-        case 'aprobada': return 'Solicitud Aprobada';
+        case 'sin_solicitud': return 'Sin Solicitud Activa';
+        case 'pendiente': 
+        case 'solicitud_pendiente': return 'Solicitud en Revisión';
+        case 'aprobada': 
+        case 'aprobado': return 'Solicitud Aprobada';
         case 'en_proceso': return 'Servicio Social en Proceso';
-        case 'completado': return 'Servicio Social Completado';
+        case 'completado': 
+        case 'concluido': return 'Servicio Social Completado';
         default: return 'Estado del Servicio';
     }
 }
@@ -164,11 +238,42 @@ function getEstadoTitle($estado) {
 function getEstadoTextDashboard($estado) {
     switch($estado) {
         case 'sin_solicitud': return 'Sin Solicitud Activa';
-        case 'pendiente': return 'En Revisión';
-        case 'aprobada': return 'Aprobada - Lista para comenzar';
+        case 'pendiente': 
+        case 'solicitud_pendiente': return 'En Revisión';
+        case 'aprobada': 
+        case 'aprobado': return 'Aprobada - Lista para comenzar';
         case 'en_proceso': return 'En Proceso - Activo';
-        case 'completado': return 'Completado - Finalizado';
+        case 'completado': 
+        case 'concluido': return 'Completado - Finalizado';
         default: return 'Estado no definido';
+    }
+}
+
+function getActivityIcon($tipo, $estado = null) {
+    switch($tipo) {
+        case 'reporte':
+            if ($estado === 'aprobado') return 'check';
+            if ($estado === 'pendiente_evaluacion') return 'clock';
+            return 'file-alt';
+        case 'solicitud':
+            if ($estado === 'aprobada') return 'check-circle';
+            if ($estado === 'pendiente') return 'hourglass-half';
+            return 'paper-plane';
+        default: return 'info-circle';
+    }
+}
+
+function getActivityIconClass($tipo, $estado = null) {
+    switch($tipo) {
+        case 'reporte':
+            if ($estado === 'aprobado') return 'success';
+            if ($estado === 'pendiente_evaluacion') return 'warning';
+            return 'info';
+        case 'solicitud':
+            if ($estado === 'aprobada') return 'success';
+            if ($estado === 'pendiente') return 'warning';
+            return 'info';
+        default: return 'info';
     }
 }
 
@@ -181,11 +286,31 @@ include '../includes/sidebar.php';
 ?>
 <div class="main-wrapper">
 <div class="dashboard-container">
+    
+    <!-- Mensaje de Fix de Sesión si es necesario -->
+    <?php if ($fixMessage['show']): ?>
+    <div class="session-fix-alert">
+        <div class="session-fix-content">
+            <div class="session-fix-icon">
+                <i class="fas fa-wrench"></i>
+            </div>
+            <div class="session-fix-text">
+                <strong>Fix de Sesión Aplicado:</strong> Se detectó un problema con el ID de usuario en la sesión. 
+                Usando usuario_id = <?= $fixMessage['newId'] ?> en lugar de <?= $fixMessage['oldId'] ?> para el email <?= htmlspecialchars($fixMessage['email']) ?>.
+                <small>(Recomendación: Hacer logout/login para corregir permanentemente)</small>
+            </div>
+            <button class="session-fix-close" onclick="this.parentElement.parentElement.style.display='none'">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <!-- Header Section -->
     <div class="dashboard-header">
         <div class="welcome-section">
             <h1 class="welcome-title">
-                <span class="welcome-text">¡Hola, <?= htmlspecialchars(explode(' ', ($estudiante['nombre']?? 'Usuario'))[0]) ?>!</span>
+                <span class="welcome-text">¡Hola, <?= htmlspecialchars(explode(' ', ($estudiante['nombre'] ?? 'Usuario'))[0]) ?>!</span>
                 <span class="welcome-emoji">👋</span>
             </h1>
             <p class="welcome-subtitle">Bienvenido a tu panel de control de servicio social</p>
@@ -202,7 +327,7 @@ include '../includes/sidebar.php';
         </div>
     </div>
 
-    <!-- STATUS OVERVIEW -->
+    <!-- STATUS OVERVIEW REDESIGN -->
     <div class="status-overview-redesign">
         <!-- Estado del Servicio - Tarjeta Principal -->
         <div class="service-status-card <?= getEstadoCssClass($estudiante['estado_servicio'] ?? 'sin_solicitud') ?>">
@@ -218,7 +343,7 @@ include '../includes/sidebar.php';
                     </div>
                     <?php if ($solicitudActiva): ?>
                     <div class="service-project-info">
-                        <div class="service-project-name"><?=htmlspecialchars($solicitudActiva['nombre_proyecto'] ?? 'Sin proyecto') ?></div>
+                        <div class="service-project-name"><?= htmlspecialchars($solicitudActiva['nombre_proyecto'] ?? 'Sin proyecto') ?></div>
                         <div class="service-project-lab"><?= htmlspecialchars($solicitudActiva['laboratorio'] ?? 'Sin laboratorio') ?></div>
                     </div>
                     <?php else: ?>
@@ -352,9 +477,9 @@ include '../includes/sidebar.php';
                         <h3>¡Solicitud Aprobada!</h3>
                         <p>Tu solicitud ha sido aprobada. Ya puedes comenzar con tu servicio social.</p>
                         <div class="project-info">
-                            <p><strong>Proyecto:</strong><?= htmlspecialchars($solicitudActiva['nombre_proyecto'] ?? 'Sin proyecto') ?></p>
-                            <p><strong>Laboratorio:</strong><?= htmlspecialchars($solicitudActiva['laboratorio'] ?? 'Sin laboratorio') ?></p>
-                            <p><strong>Supervisor:</strong><?= htmlspecialchars($solicitudActiva['jefe_lab_nombre'] ?? 'Sin asignar') ?></p>
+                            <p><strong>Proyecto:</strong> <?= htmlspecialchars($solicitudActiva['nombre_proyecto'] ?? 'Sin proyecto') ?></p>
+                            <p><strong>Laboratorio:</strong> <?= htmlspecialchars($solicitudActiva['laboratorio'] ?? 'Sin laboratorio') ?></p>
+                            <p><strong>Supervisor:</strong> <?= htmlspecialchars($solicitudActiva['jefe_lab_nombre'] ?? 'Sin asignar') ?></p>
                         </div>
                     </div>
                     <div class="status-actions">
@@ -416,39 +541,54 @@ include '../includes/sidebar.php';
                 </div>
 
                 <div class="activities-list">
-                    <div class="activity-item">
-                        <div class="activity-icon success">
-                            <i class="fas fa-check"></i>
+                    <?php if (!empty($actividadesRecientes)): ?>
+                        <?php foreach ($actividadesRecientes as $actividad): ?>
+                        <div class="activity-item">
+                            <div class="activity-icon <?= getActivityIconClass($actividad['tipo'], $actividad['estado']) ?>">
+                                <i class="fas fa-<?= getActivityIcon($actividad['tipo'], $actividad['estado']) ?>"></i>
+                            </div>
+                            <div class="activity-content">
+                                <h4><?= htmlspecialchars($actividad['titulo']) ?></h4>
+                                <p><?= htmlspecialchars($actividad['descripcion']) ?></p>
+                                <span class="activity-date"><?= timeAgo($actividad['fecha']) ?></span>
+                            </div>
                         </div>
-                        <div class="activity-content">
-                            <h4>Dashboard Funcionando</h4>
-                            <p>El dashboard está cargando correctamente con todos los datos del estudiante</p>
-                            <span class="activity-date">Ahora</span>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <div class="activity-item">
+                            <div class="activity-icon info">
+                                <i class="fas fa-info-circle"></i>
+                            </div>
+                            <div class="activity-content">
+                                <h4>Dashboard Funcionando</h4>
+                                <p>El dashboard está funcionando correctamente con todos los datos del estudiante</p>
+                                <span class="activity-date">Ahora</span>
+                            </div>
                         </div>
-                    </div>
-                    
-                    <div class="activity-item">
-                        <div class="activity-icon info">
-                            <i class="fas fa-user"></i>
+                        
+                        <div class="activity-item">
+                            <div class="activity-icon success">
+                                <i class="fas fa-user"></i>
+                            </div>
+                            <div class="activity-content">
+                                <h4>Perfil Completo</h4>
+                                <p>Datos del estudiante: <?= htmlspecialchars($estudiante['nombre'] ?? 'Sin nombre') ?> (<?= htmlspecialchars($estudiante['numero_control'] ?? 'Sin número') ?>)</p>
+                                <span class="activity-date">Sesión actual</span>
+                            </div>
                         </div>
-                        <div class="activity-content">
-                            <h4>Perfil de Usuario</h4>
-                            <p>Datos del estudiante: <?= htmlspecialchars($estudiante['nombre'] ?? 'Sin nombre') ?> (<?= htmlspecialchars($estudiante['numero_control'] ?? 'Sin número') ?>)</p>
-                            <span class="activity-date">Sesión actual</span>
+                        
+                        <?php if ($fixMessage['show']): ?>
+                        <div class="activity-item">
+                            <div class="activity-icon warning">
+                                <i class="fas fa-wrench"></i>
+                            </div>
+                            <div class="activity-content">
+                                <h4>Sesión Corregida</h4>
+                                <p>Se aplicó un fix temporal para corregir el ID de usuario en la sesión</p>
+                                <span class="activity-date">Fix aplicado</span>
+                            </div>
                         </div>
-                    </div>
-                    
-                    <?php if ($sessionFixed): ?>
-                    <div class="activity-item">
-                        <div class="activity-icon warning">
-                            <i class="fas fa-wrench"></i>
-                        </div>
-                        <div class="activity-content">
-                            <h4>Sesión Corregida</h4>
-                            <p>Se aplicó un fix temporal para corregir el ID de usuario en la sesión</p>
-                            <span class="activity-date">Fix aplicado</span>
-                        </div>
-                    </div>
+                        <?php endif; ?>
                     <?php endif; ?>
                 </div>
             </div>
@@ -483,6 +623,36 @@ include '../includes/sidebar.php';
                         <div class="detail-item">
                             <span class="detail-label">Tiempo estimado</span>
                             <span class="detail-value"><?= ceil(max(0, $horasRequeridas - $horasCompletadas) / 5) ?> semanas</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Student Info Widget -->
+            <div class="widget">
+                <div class="widget-header">
+                    <h3 class="widget-title">
+                        <i class="fas fa-id-card"></i>
+                        Información Personal
+                    </h3>
+                </div>
+                <div class="widget-content">
+                    <div class="student-info">
+                        <div class="info-item">
+                            <span class="info-label">Número de Control</span>
+                            <span class="info-value"><?= htmlspecialchars($estudiante['numero_control'] ?? 'N/A') ?></span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Carrera</span>
+                            <span class="info-value"><?= htmlspecialchars($estudiante['carrera'] ?? 'N/A') ?></span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Semestre</span>
+                            <span class="info-value"><?= $estudiante['semestre'] ?? 'N/A' ?>°</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Créditos</span>
+                            <span class="info-value"><?= $estudiante['creditos_cursados'] ?? 'N/A' ?></span>
                         </div>
                     </div>
                 </div>
@@ -555,6 +725,16 @@ include '../includes/sidebar.php';
                             </div>
                         </a>
                         
+                        <a href="/servicio_social_ita/modules/estudiantes/reportes.php" class="quick-action">
+                            <div class="action-icon">
+                                <i class="fas fa-file-alt"></i>
+                            </div>
+                            <div class="action-text">
+                                <span>Mis Reportes</span>
+                                <small>Gestionar reportes</small>
+                            </div>
+                        </a>
+                        
                         <a href="../help.php" class="quick-action">
                             <div class="action-icon">
                                 <i class="fas fa-question-circle"></i>
@@ -602,6 +782,67 @@ include '../includes/sidebar.php';
     padding: 1.5rem;
     max-width: 1400px;
     margin: 0 auto;
+}
+
+/* Session Fix Alert */
+.session-fix-alert {
+    background: linear-gradient(135deg, #d4edda, #c3e6cb);
+    border: 1px solid #c3e6cb;
+    border-radius: var(--radius-lg);
+    margin-bottom: 1.5rem;
+    animation: slideInDown 0.5s ease-out;
+}
+
+.session-fix-content {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+}
+
+.session-fix-icon {
+    width: 40px;
+    height: 40px;
+    background: #198754;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.session-fix-text {
+    flex: 1;
+    color: #155724;
+    font-size: 0.95rem;
+}
+
+.session-fix-text strong {
+    display: block;
+    margin-bottom: 0.25rem;
+}
+
+.session-fix-text small {
+    font-size: 0.85rem;
+    opacity: 0.8;
+}
+
+.session-fix-close {
+    background: none;
+    border: none;
+    color: #155724;
+    font-size: 1.25rem;
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: var(--radius);
+    transition: var(--transition);
+    flex-shrink: 0;
+}
+
+.session-fix-close:hover {
+    background: rgba(21, 87, 36, 0.1);
 }
 
 /* Header Section */
@@ -759,7 +1000,7 @@ include '../includes/sidebar.php';
 }
 
 .service-status-card.completed {
-    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+    background: linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%);
 }
 
 /* Progreso de Horas */
@@ -1337,6 +1578,32 @@ include '../includes/sidebar.php';
     color: var(--text-primary);
 }
 
+/* Student Info */
+.student-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.info-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    background: var(--bg-light);
+    border-radius: var(--radius);
+}
+
+.info-label {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.info-value {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
 /* Documents List */
 .documents-list {
     display: flex;
@@ -1501,6 +1768,45 @@ include '../includes/sidebar.php';
     color: var(--primary);
 }
 
+/* Animaciones */
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.status-overview-redesign > * {
+    animation: slideIn 0.6s ease-out;
+}
+
+.status-overview-redesign > *:nth-child(1) {
+    animation-delay: 0.1s;
+}
+
+.status-overview-redesign > *:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.status-overview-redesign > *:nth-child(3) {
+    animation-delay: 0.3s;
+}
+
 /* Responsive Design */
 @media (max-width: 1200px) {
     .status-overview-redesign {
@@ -1556,6 +1862,34 @@ include '../includes/sidebar.php';
         width: 100%;
         justify-content: center;
     }
+    
+    .session-fix-content {
+        flex-direction: column;
+        text-align: center;
+        gap: 1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .metric-item {
+        flex-direction: column;
+        text-align: center;
+        gap: 0.5rem;
+    }
+    
+    .progress-circle {
+        width: 100px;
+        height: 100px;
+    }
+    
+    .progress-circle::before {
+        width: 80px;
+        height: 80px;
+    }
+    
+    .progress-value {
+        font-size: 1.25rem;
+    }
 }
 </style>
 
@@ -1575,15 +1909,16 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     updateTime();
-    setInterval(updateTime, 60000);
+    setInterval(updateTime, 60000); // Update every minute
     
-    // Animación del progreso circular
+    // Animación del progreso circular principal
     const progressElement = document.querySelector('.circular-progress-bg');
     if (progressElement) {
         const percentage = parseInt(progressElement.style.getPropertyValue('--progress'));
         
+        // Animar el progreso desde 0
         let current = 0;
-        const increment = percentage / 60;
+        const increment = percentage / 60; // 60 frames de animación
         
         function animateProgress() {
             if (current < percentage) {
@@ -1593,13 +1928,14 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
         
+        // Iniciar animación después de un pequeño delay
         setTimeout(() => {
             progressElement.style.setProperty('--progress', 0);
             animateProgress();
         }, 500);
     }
     
-    // Animación de números
+    // Animación de contador para los números de métricas
     const numbers = document.querySelectorAll('.metric-number');
     numbers.forEach(numberElement => {
         const finalNumber = parseInt(numberElement.textContent);
@@ -1620,6 +1956,86 @@ document.addEventListener('DOMContentLoaded', function() {
             animateNumber();
         }, Math.random() * 500 + 200);
     });
+    
+    // Efecto hover mejorado para las métricas
+    const metricItems = document.querySelectorAll('.metric-item');
+    metricItems.forEach(item => {
+        item.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateX(10px) scale(1.02)';
+        });
+        
+        item.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateX(0) scale(1)';
+        });
+    });
+    
+    // Animación para el progreso circular del widget
+    const progressCircles = document.querySelectorAll('.progress-circle');
+    progressCircles.forEach(circle => {
+        const percentage = circle.getAttribute('data-percentage');
+        circle.style.setProperty('--percentage', percentage);
+    });
+    
+    // Add hover effects to cards
+    const cards = document.querySelectorAll('.activity-item, .document-item, .quick-action');
+    cards.forEach(card => {
+        card.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-2px)';
+            this.style.boxShadow = 'var(--shadow-lg)';
+        });
+        
+        card.addEventListener('mouseleave', function() {
+            this.style.transform = '';
+            this.style.boxShadow = '';
+        });
+    });
+    
+    // Add loading states to buttons
+    const buttons = document.querySelectorAll('.btn');
+    buttons.forEach(button => {
+        button.addEventListener('click', function(e) {
+            // Solo agregar loading si no es un enlace externo
+            if (this.getAttribute('href') && !this.getAttribute('href').startsWith('#')) {
+                return; // Permitir navegación normal
+            }
+            
+            this.classList.add('loading');
+            const originalText = this.innerHTML;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cargando...';
+            
+            setTimeout(() => {
+                this.classList.remove('loading');
+                this.innerHTML = originalText;
+            }, 2000);
+        });
+    });
+    
+    // Smooth scroll for internal links
+    const internalLinks = document.querySelectorAll('a[href^="#"]');
+    internalLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            const targetId = this.getAttribute('href').substring(1);
+            const targetElement = document.getElementById(targetId);
+            if (targetElement) {
+                targetElement.scrollIntoView({
+                    behavior: 'smooth'
+                });
+            }
+        });
+    });
+    
+    // Auto-hide session fix alert after 10 seconds
+    const sessionAlert = document.querySelector('.session-fix-alert');
+    if (sessionAlert) {
+        setTimeout(() => {
+            sessionAlert.style.opacity = '0';
+            sessionAlert.style.transform = 'translateY(-20px)';
+            setTimeout(() => {
+                sessionAlert.style.display = 'none';
+            }, 300);
+        }, 10000);
+    }
 });
 </script>
 
