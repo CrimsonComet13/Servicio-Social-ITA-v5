@@ -289,8 +289,8 @@ $pageTitle = "Detalle de Solicitud - " . APP_NAME;
 include '../../includes/header.php';
 include '../../includes/sidebar.php';
 ?>
-
-<div class="dashboard-container">
+<div class="main-wrapper">
+    <div class="dashboard-container">
     <?php if ($error): ?>
     <div class="alert alert-error">
         <i class="fas fa-exclamation-triangle"></i>
@@ -622,6 +622,7 @@ include '../../includes/sidebar.php';
         </div>
     </div>
     <?php endif; ?>
+    </div>
 </div>
 
 <!-- Modals -->
@@ -714,6 +715,37 @@ include '../../includes/sidebar.php';
 </div>
 
 <style>
+    /* Variables sidebar */
+:root {
+    --sidebar-width: 280px;
+    --header-height: 70px;
+}
+
+/* Main wrapper con margen para sidebar */
+.main-wrapper {
+    margin-left: var(--sidebar-width);
+    min-height: calc(100vh - var(--header-height));
+    transition: margin-left 0.3s ease;
+}
+
+/* Dashboard container ajustado */
+.dashboard-container {
+    max-width: calc(1400px - var(--sidebar-width));
+    margin: 0 auto;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Responsive: En móvil sidebar se oculta */
+@media (max-width: 1024px) {
+    .main-wrapper {
+        margin-left: 0;
+    }
+    
+    .dashboard-container {
+        max-width: 1400px;
+    }
+}
 /* Variables CSS */
 :root {
     --primary: #6366f1;

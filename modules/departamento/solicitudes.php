@@ -849,9 +849,41 @@ body {
         flex-direction: column;
     }
 }
-</style>
 
-<div class="dashboard-content">
+/* Variables sidebar */
+:root {
+    --sidebar-width: 280px;
+    --header-height: 70px;
+}
+
+/* Main wrapper con margen para sidebar */
+.main-wrapper {
+    margin-left: var(--sidebar-width);
+    min-height: calc(100vh - var(--header-height));
+    transition: margin-left 0.3s ease;
+}
+
+/* Dashboard container ajustado */
+.dashboard-container {
+    max-width: calc(1400px - var(--sidebar-width));
+    margin: 0 auto;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Responsive: En móvil sidebar se oculta */
+@media (max-width: 1024px) {
+    .main-wrapper {
+        margin-left: 0;
+    }
+    
+    .dashboard-container {
+        max-width: 1400px;
+    }
+}
+</style>
+<div class="main-wrapper">
+<div class="dashboard-container">
     <div class="dashboard-header">
         <h1>Solicitudes de Servicio Social</h1>
         <p>Gestión y seguimiento de solicitudes del departamento <?= htmlspecialchars($usuario['departamento']) ?></p>
@@ -1047,7 +1079,7 @@ body {
                             </td>
                             <td>
                                 <div class="action-buttons">
-                                    <a href="/modules/departamento/solicitud-detalle.php?id=<?= $solicitud['id'] ?>" class="btn btn-sm btn-info">
+                                    <a href="/servicio_social_ita/modules/departamento/solicitud-detalle.php?id=<?= $solicitud['id'] ?>" class="btn btn-sm btn-info">
                                         <i class="fas fa-eye"></i> Ver
                                     </a>
                                     
@@ -1098,6 +1130,7 @@ body {
             <p>No hay solicitudes que coincidan con los filtros seleccionados</p>
         </div>
     <?php endif; ?>
+</div>
 </div>
 
 <script>

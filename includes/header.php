@@ -742,10 +742,13 @@ function getFlashMessage() {
     <header class="app-header">
         <div class="header-container">
             <!-- Mobile Menu Toggle -->
-            <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Menú">
+            <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Menú"
+            onclick="toggleMobileMenu()">
+             <span class="menu-icon">
                 <span class="hamburger-line"></span>
                 <span class="hamburger-line"></span>
                 <span class="hamburger-line"></span>
+                </span>
             </button>
             
             <!-- Logo y Brand -->

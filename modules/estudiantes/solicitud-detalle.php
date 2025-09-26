@@ -185,8 +185,8 @@ $pageTitle = "Detalle de Solicitud - " . APP_NAME;
 include '../../includes/header.php';
 include '../../includes/sidebar.php';
 ?>
-
-<div class="detail-container">
+<div class="main-wrapper">
+    <div class="dashboard-container">
     <!-- Header Section -->
     <div class="detail-header">
         <div class="header-content">
@@ -593,8 +593,8 @@ include '../../includes/sidebar.php';
         </div>
     </div>
     <?php endif; ?>
+    </div>
 </div>
-
 <style>
 /* Variables CSS */
 :root {
@@ -1740,6 +1740,37 @@ include '../../includes/sidebar.php';
         animation-duration: 0.01ms !important;
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
+    }
+}
+/* Variables sidebar */
+:root {
+    --sidebar-width: 280px;
+    --header-height: 70px;
+}
+
+/* Main wrapper con margen para sidebar */
+.main-wrapper {
+    margin-left: var(--sidebar-width);
+    min-height: calc(100vh - var(--header-height));
+    transition: margin-left 0.3s ease;
+}
+
+/* Dashboard container ajustado */
+.dashboard-container {
+    max-width: calc(1400px - var(--sidebar-width));
+    margin: 0 auto;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Responsive: En móvil sidebar se oculta */
+@media (max-width: 1024px) {
+    .main-wrapper {
+        margin-left: 0;
+    }
+    
+    .dashboard-container {
+        max-width: 1400px;
     }
 }
 </style>

@@ -93,8 +93,8 @@ $pageTitle = "Gestión de Jefes de Laboratorio - " . APP_NAME;
 include '../../includes/header.php';
 include '../../includes/sidebar.php';
 ?>
-
-<div class="dashboard-container">
+<div class="main-wrapper">
+    <div class="dashboard-container">
     <!-- Header Section -->
     <div class="dashboard-header">
         <div class="header-content">
@@ -110,7 +110,7 @@ include '../../includes/sidebar.php';
                     <i class="fas fa-arrow-left"></i>
                     Volver al Dashboard
                 </a>
-                <a href="../../../auth/register-jefe.php" class="btn btn-primary">
+                <a href="../../departamento/register-jefe.php" class="btn btn-primary">
                     <i class="fas fa-plus"></i>
                     Invitar Jefe
                 </a>
@@ -349,6 +349,7 @@ include '../../includes/sidebar.php';
                 </div>
             </div>
         <?php endif; ?>
+    </div>
     </div>
 </div>
 
@@ -1125,6 +1126,38 @@ include '../../includes/sidebar.php';
     
     .tab-count {
         font-size: 1.25rem;
+    }
+}
+
+/* Variables sidebar */
+:root {
+    --sidebar-width: 280px;
+    --header-height: 70px;
+}
+
+/* Main wrapper con margen para sidebar */
+.main-wrapper {
+    margin-left: var(--sidebar-width);
+    min-height: calc(100vh - var(--header-height));
+    transition: margin-left 0.3s ease;
+}
+
+/* Dashboard container ajustado */
+.dashboard-container {
+    max-width: calc(1400px - var(--sidebar-width));
+    margin: 0 auto;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Responsive: En móvil sidebar se oculta */
+@media (max-width: 1024px) {
+    .main-wrapper {
+        margin-left: 0;
+    }
+    
+    .dashboard-container {
+        max-width: 1400px;
     }
 }
 </style>

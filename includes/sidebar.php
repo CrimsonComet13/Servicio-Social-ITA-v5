@@ -147,7 +147,7 @@ function hasActiveSubmenu($submenu, $currentPath) {
     return false;
 }
 ?>
-
+<div class="mobile-overlay" id="mobileOverlay"></div>
 <aside class="sidebar" id="appSidebar">
     <!-- Sidebar Header -->
     <div class="sidebar-header">
@@ -161,7 +161,7 @@ function hasActiveSubmenu($submenu, $currentPath) {
                 <div class="status-indicator online"></div>
             </div>
             <div class="user-info">
-                <h3 class="user-name"><?= htmlspecialchars($usuario['nombre'] ?? $usuario['email']) ?></h3>
+                <h3 class="user-name"><?= htmlspecialchars(($usuario['nombre'] ?? $usuario['email']) ?: 'Usuario') ?></h3>
                 <span class="user-role"><?= ucfirst(str_replace('_', ' ', $currentRole)) ?></span>
             </div>
         </div>

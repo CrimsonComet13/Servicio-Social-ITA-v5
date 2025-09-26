@@ -50,8 +50,8 @@ $pageTitle = "Mis Reportes - " . APP_NAME;
 include '../../includes/header.php';
 include '../../includes/sidebar.php';
 ?>
-
-<div class="reports-container">
+<div class="main-wrapper">
+    <div class="dashboard-container">
     <!-- Header Section -->
     <div class="reports-header">
         <div class="header-content">
@@ -299,6 +299,7 @@ include '../../includes/sidebar.php';
             <?php endif; ?>
         </div>
     <?php endif; ?>
+    </div>
 </div>
 
 <style>
@@ -991,6 +992,37 @@ include '../../includes/sidebar.php';
 .report-card:focus-within {
     transform: translateY(-2px);
     box-shadow: var(--shadow-lg);
+}
+/* Variables sidebar */
+:root {
+    --sidebar-width: 280px;
+    --header-height: 70px;
+}
+
+/* Main wrapper con margen para sidebar */
+.main-wrapper {
+    margin-left: var(--sidebar-width);
+    min-height: calc(100vh - var(--header-height));
+    transition: margin-left 0.3s ease;
+}
+
+/* Dashboard container ajustado */
+.dashboard-container {
+    max-width: calc(1400px - var(--sidebar-width));
+    margin: 0 auto;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Responsive: En móvil sidebar se oculta */
+@media (max-width: 1024px) {
+    .main-wrapper {
+        margin-left: 0;
+    }
+    
+    .dashboard-container {
+        max-width: 1400px;
+    }
 }
 </style>
 

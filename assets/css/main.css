@@ -396,28 +396,3 @@ body {
         padding: 1.5rem;
     }
 }
-/* --- Dashboard Layout --- */
-.layout {
-    display: flex;
-    min-height: 100vh; /* que ocupe toda la altura */
-}
-
-/* Sidebar fijo al costado */
-.sidebar {
-    width: 250px; /* ancho fijo */
-    background-color: var(--secondary-color);
-    color: var(--text-light);
-    padding: 1rem;
-    flex-shrink: 0; /* evita que se encoja */
-    position: sticky; /* sidebar se mantiene al hacer scroll */
-    top: 0;
-    height: 100vh;
-    overflow-y: auto; /* si hay mucho contenido, agrega scroll */
-}
-
-/* Contenido principal */
-.main-content {
-    flex: 1; /* ocupa todo el espacio disponible */
-    padding: 2rem;
-    background-color: var(--bg-light);
-}
