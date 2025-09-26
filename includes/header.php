@@ -831,10 +831,7 @@ function getFlashMessage() {
                         </div>
                         
                         <nav class="user-menu-nav">
-                            <a href="../modules/<?= getUserRole() ?>/perfil.php" class="user-menu-item">
-                                <i class="fas fa-user"></i>
-                                <span>Mi Perfil</span>
-                            </a>
+                            
                             <a href="../help.php" class="user-menu-item">
                                 <i class="fas fa-question-circle"></i>
                                 <span>Ayuda</span>

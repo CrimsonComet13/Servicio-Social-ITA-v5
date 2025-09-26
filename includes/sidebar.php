@@ -148,7 +148,7 @@ function hasActiveSubmenu($submenu, $currentPath) {
 }
 ?>
 
-<aside class="app-sidebar" id="appSidebar">
+<aside class="sidebar" id="appSidebar">
     <!-- Sidebar Header -->
     <div class="sidebar-header">
         <div class="sidebar-user">
@@ -310,7 +310,7 @@ function hasActiveSubmenu($submenu, $currentPath) {
 
 <style>
 /* Sidebar Styles */
-.app-sidebar {
+.sidebar {
     position: fixed;
     left: 0;
     top: var(--header-height);
@@ -326,20 +326,20 @@ function hasActiveSubmenu($submenu, $currentPath) {
     flex-direction: column;
 }
 
-.app-sidebar::-webkit-scrollbar {
+.sidebar::-webkit-scrollbar {
     width: 6px;
 }
 
-.app-sidebar::-webkit-scrollbar-track {
+.sidebar::-webkit-scrollbar-track {
     background: var(--bg-light);
 }
 
-.app-sidebar::-webkit-scrollbar-thumb {
+.sidebar::-webkit-scrollbar-thumb {
     background: var(--border);
     border-radius: 3px;
 }
 
-.app-sidebar::-webkit-scrollbar-thumb:hover {
+.sidebar::-webkit-scrollbar-thumb:hover {
     background: var(--text-light);
 }
 
@@ -784,12 +784,12 @@ function hasActiveSubmenu($submenu, $currentPath) {
 
 /* Mobile Styles */
 @media (max-width: 1024px) {
-    .app-sidebar {
+    .sidebar {
         transform: translateX(-100%);
         z-index: 1001;
     }
     
-    .app-sidebar.mobile-open {
+    .sidebar.mobile-open {
         transform: translateX(0);
         box-shadow: var(--shadow-lg);
     }

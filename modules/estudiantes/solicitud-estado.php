@@ -642,7 +642,7 @@ include '../../includes/sidebar.php';
         <!-- Botones de Acción -->
         <div class="action-section-modern">
             <?php if ($solicitudActiva['estado'] == 'aprobada'): ?>
-            <a href="servicio_social_ita/estudiantes/documentos.php" class="btn btn-primary btn-lg modern">
+            <a href="../estudiantes/documentos.php" class="btn btn-primary btn-lg modern">
                 <i class="fas fa-download"></i>
                 <div class="btn-content">
                     <span>Descargar Oficio</span>
@@ -652,7 +652,7 @@ include '../../includes/sidebar.php';
             <?php endif; ?>
             
             <?php if ($solicitudActiva['estado'] == 'en_proceso'): ?>
-            <a href="servicio_social_ita/modules/estudiantes/reportes.php" class="btn btn-primary btn-lg modern">
+            <a href="../estudiantes/reportes.php" class="btn btn-primary btn-lg modern">
                 <i class="fas fa-file-alt"></i>
                 <div class="btn-content">
                     <span>Gestionar Reportes</span>
