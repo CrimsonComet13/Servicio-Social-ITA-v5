@@ -39,15 +39,16 @@ function getUserRole() {
     }
     return 'estudiante';
 }
-
-function getFlashMessage() {
+function getFlashMessageHeader() {
     if (isset($_SESSION['flash_message'])) {
         $message = $_SESSION['flash_message'];
-        unset($_SESSION['flash_message']);
-        return $message;
+        $type = $_SESSION['flash_type'] ?? 'info';
+        unset($_SESSION['flash_message'], $_SESSION['flash_type']);
+        return ['message' => $message, 'type' => $type];
     }
     return null;
 }
+
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -871,7 +872,7 @@ function getFlashMessage() {
     <?php endif; ?>
     
     <!-- Flash Messages -->
-    <?php if ($flash = getFlashMessage()): ?>
+    <?php if ($flash = getFlashMessageHeader()): ?>
     <div class="flash-message <?= $flash['type'] ?>" id="flashMessage">
         <div style="display: flex; align-items: center; gap: 0.75rem;">
             <i class="fas fa-<?= $flash['type'] === 'success' ? 'check-circle' : ($flash['type'] === 'error' ? 'exclamation-circle' : 'info-circle') ?>"></i>
