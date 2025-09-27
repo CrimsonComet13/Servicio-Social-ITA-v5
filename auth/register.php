@@ -98,7 +98,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $db = Database::getInstance();
             $db->beginTransaction();
             
-            // Crear usuario
+            // Crear usuario primero
             $userId = $db->insert('usuarios', [
                 'email' => $formData['email'],
                 'password' => password_hash($formData['password'], PASSWORD_DEFAULT),
@@ -108,7 +108,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'token_verificacion' => bin2hex(random_bytes(32))
             ]);
             
-            // Crear estudiante
+            if (!$userId) {
+                throw new Exception('Error al crear el usuario');
+            }
+            
+            // Crear estudiante con el usuario_id correcto
             $estudianteId = $db->insert('estudiantes', [
                 'usuario_id' => $userId,
                 'numero_control' => $formData['numero_control'],
@@ -122,37 +126,81 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'estado_servicio' => 'sin_solicitud'
             ]);
             
+            if (!$estudianteId) {
+                throw new Exception('Error al crear el perfil de estudiante');
+            }
+            
             $db->commit();
             
-            // Iniciar sesión automáticamente
-            $userData = $db->fetch("
-                SELECT e.*, u.email 
+            // ✅ CORRECCIÓN: Obtener datos completos para la sesión
+            $usuarioCompleto = $db->fetch("
+                SELECT u.id, u.email, u.tipo_usuario, u.activo, u.email_verificado
+                FROM usuarios u 
+                WHERE u.id = ?
+            ", [$userId]);
+            
+            $estudianteCompleto = $db->fetch("
+                SELECT e.* 
                 FROM estudiantes e 
-                JOIN usuarios u ON e.usuario_id = u.id 
                 WHERE e.usuario_id = ?
             ", [$userId]);
             
-            $session->set('usuario', array_merge([
-                'id' => $userId,
-                'email' => $formData['email'],
-                'tipo_usuario' => 'estudiante',
-                'activo' => true,
-                'email_verificado' => false
-            ], $userData));
+            if (!$usuarioCompleto || !$estudianteCompleto) {
+                throw new Exception('Error al obtener datos del usuario creado');
+            }
             
-            // Registrar actividad si la función existe
+            // ✅ CORRECCIÓN: Estructura de sesión consistente
+            $sessionData = [
+                'id' => $userId,
+                'usuario_id' => $userId,  // Para compatibilidad
+                'email' => $usuarioCompleto['email'],
+                'tipo_usuario' => $usuarioCompleto['tipo_usuario'],
+                'activo' => $usuarioCompleto['activo'],
+                'email_verificado' => $usuarioCompleto['email_verificado'],
+                // Datos del perfil del estudiante
+                'perfil' => [
+                    'id' => $estudianteCompleto['id'],
+                    'numero_control' => $estudianteCompleto['numero_control'],
+                    'nombre' => $estudianteCompleto['nombre'],
+                    'apellido_paterno' => $estudianteCompleto['apellido_paterno'],
+                    'apellido_materno' => $estudianteCompleto['apellido_materno'],
+                    'carrera' => $estudianteCompleto['carrera'],
+                    'semestre' => $estudianteCompleto['semestre'],
+                    'creditos_cursados' => $estudianteCompleto['creditos_cursados'],
+                    'telefono' => $estudianteCompleto['telefono'],
+                    'estado_servicio' => $estudianteCompleto['estado_servicio'],
+                    'horas_completadas' => $estudianteCompleto['horas_completadas']
+                ]
+            ];
+            
+            // Establecer sesión
+            $session->set('usuario', $sessionData);
+            
+            // Verificar que la sesión se estableció correctamente
+            if (!$session->isLoggedIn()) {
+                throw new Exception('Error al establecer la sesión');
+            }
+            
+            // Registrar actividad
             if (function_exists('logActivity')) {
                 logActivity($userId, 'register', 'auth');
             }
             
-            $success = 'Registro exitoso. Bienvenido al sistema.';
+            // ✅ CORRECCIÓN: Redirección limpia
+            $success = 'Registro exitoso. Redirigiendo al dashboard...';
             
-            // Redirigir al dashboard de estudiante
-            header("Location: ../dashboard/estudiante.php");
-            exit();
+            // Usar JavaScript para redirección con mensaje
+            echo "<script>
+                setTimeout(function() {
+                    window.location.href = '../dashboard/estudiante.php';
+                }, 1500);
+            </script>";
+            
+            // No usar exit() inmediatamente para mostrar el mensaje
             
         } catch (Exception $e) {
             $db->rollback();
+            error_log("Error en registro: " . $e->getMessage());
             $errors['general'] = 'Error en el registro: ' . $e->getMessage();
         }
     }
@@ -326,6 +374,7 @@ include '../includes/header.php';
                                     <option value="Ingeniería Química" <?= ($formData['carrera'] ?? '') === 'Ingeniería Química' ? 'selected' : '' ?>>Ingeniería Química</option>
                                     <option value="Ingeniería Mecatrónica" <?= ($formData['carrera'] ?? '') === 'Ingeniería Mecatrónica' ? 'selected' : '' ?>>Ingeniería Mecatrónica</option>
                                     <option value="Ingeniería en Gestión Empresarial" <?= ($formData['carrera'] ?? '') === 'Ingeniería en Gestión Empresarial' ? 'selected' : '' ?>>Ingeniería en Gestión Empresarial</option>
+                                    <option value="Ingeniería en Tecnologías de la Información y Comunicaciones" <?= ($formData['carrera'] ?? '') === 'Ingeniería en Tecnologías de la Información y Comunicaciones' ? 'selected' : '' ?>>Ingeniería en Tecnologías de la Información y Comunicaciones</option>
                                     <option value="Licenciatura en Administración" <?= ($formData['carrera'] ?? '') === 'Licenciatura en Administración' ? 'selected' : '' ?>>Licenciatura en Administración</option>
                                 </select>
                             </div>
@@ -427,9 +476,7 @@ include '../includes/header.php';
             </div>
         </div>
     </div>
-</div>
-
-                            
+</div>                           
 
 <style>
 :root {
@@ -1187,13 +1234,6 @@ document.addEventListener('DOMContentLoaded', function() {
             submitBtn.disabled = true;
             if (btnText) btnText.style.display = 'none';
             if (btnLoader) btnLoader.style.display = 'inline-flex';
-            
-            // Re-enable after 15 seconds in case of error
-            setTimeout(() => {
-                submitBtn.disabled = false;
-                if (btnText) btnText.style.display = 'inline-flex';
-                if (btnLoader) btnLoader.style.display = 'none';
-            }, 15000);
         });
     }
 
@@ -1207,21 +1247,6 @@ document.addEventListener('DOMContentLoaded', function() {
         input.addEventListener('blur', function() {
             this.parentElement.classList.remove('focused');
         });
-    });
-    
-    // Header scroll effect
-    let lastScrollY = window.scrollY;
-    const nav = document.querySelector('.register-nav');
-    
-    window.addEventListener('scroll', () => {
-        if (window.scrollY > 50) {
-            nav.style.background = 'rgba(255, 255, 255, 0.98)';
-            nav.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1)';
-        } else {
-            nav.style.background = 'rgba(255, 255, 255, 0.95)';
-            nav.style.boxShadow = 'none';
-        }
-        lastScrollY = window.scrollY;
     });
 });
 </script>

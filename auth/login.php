@@ -9,7 +9,6 @@ $session = SecureSession::getInstance();
 // Si ya está logueado, redirigir al dashboard correspondiente
 if ($session->isLoggedIn()) {
     $userRole = $session->getUserRole();
-    // Usar ruta relativa consistente
     header("Location: ../dashboard/$userRole.php");
     exit();
 }
@@ -49,12 +48,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                'id = :id', 
                                ['id' => $user['id']]);
                     
-                    // Obtener datos específicos según el tipo de usuario
+                    // ✅ CORRECCIÓN: Obtener datos específicos según el tipo de usuario con estructura consistente
                     $userData = [];
                     try {
                         switch ($user['tipo_usuario']) {
                             case 'estudiante':
-                                $userData = getEstudianteData($user['id']);
+                                $userData = getEstudianteDataComplete($user['id'], $db);
                                 break;
                             case 'jefe_departamento':
                                 $userData = getJefeDepartamentoData($user['id']);
@@ -63,18 +62,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 $userData = getJefeLaboratorioData($user['id']);
                                 break;
                             default:
-                                // Tipo de usuario no reconocido
                                 $error = 'Tipo de usuario no válido';
                                 recordLoginAttempt($email, false);
                                 break;
                         }
                         
                         if (empty($error)) {
-                            // Configurar sesión con datos completos
-                            $userComplete = $user;
-                            $userComplete['perfil'] = $userData;
-                            $userComplete['usuario_id'] = $user['id'];
-                            $session->set('usuario', $userComplete);
+                            // ✅ CORRECCIÓN: Configurar sesión con estructura consistente
+                            $sessionData = [
+                                'id' => $user['id'],
+                                'usuario_id' => $user['id'], // Para compatibilidad
+                                'email' => $user['email'],
+                                'tipo_usuario' => $user['tipo_usuario'],
+                                'activo' => $user['activo'],
+                                'email_verificado' => $user['email_verificado'],
+                                'perfil' => $userData
+                            ];
+                            
+                            $session->set('usuario', $sessionData);
                             
                             // Verificar que la sesión se guardó correctamente
                             if ($session->isLoggedIn() && $session->getUserRole() === $user['tipo_usuario']) {
@@ -86,7 +91,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     ob_end_clean();
                                 }
                                 
-                                // Redirigir usando ruta relativa consistente
+                                // Redirigir con estructura consistente
                                 header("Location: ../dashboard/{$user['tipo_usuario']}.php");
                                 exit();
                             } else {
@@ -116,7 +121,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Mostrar página de login
+// ✅ NUEVA FUNCIÓN: Obtener datos completos del estudiante
+function getEstudianteDataComplete($usuarioId, $db) {
+    $estudiante = $db->fetch("
+        SELECT e.* 
+        FROM estudiantes e 
+        WHERE e.usuario_id = ?
+    ", [$usuarioId]);
+    
+    if (!$estudiante) {
+        throw new Exception('No se encontraron datos de estudiante para el usuario');
+    }
+    
+    return [
+        'id' => $estudiante['id'],
+        'numero_control' => $estudiante['numero_control'],
+        'nombre' => $estudiante['nombre'],
+        'apellido_paterno' => $estudiante['apellido_paterno'],
+        'apellido_materno' => $estudiante['apellido_materno'],
+        'carrera' => $estudiante['carrera'],
+        'semestre' => $estudiante['semestre'],
+        'creditos_cursados' => $estudiante['creditos_cursados'],
+        'telefono' => $estudiante['telefono'],
+        'estado_servicio' => $estudiante['estado_servicio'],
+        'fecha_inicio_servicio' => $estudiante['fecha_inicio_servicio'],
+        'fecha_fin_servicio' => $estudiante['fecha_fin_servicio'],
+        'horas_completadas' => $estudiante['horas_completadas']
+    ];
+}
+
 $pageTitle = "Iniciar Sesión - " . APP_NAME;
 include '../includes/header.php';
 ?>
@@ -1190,6 +1223,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         lastScrollY = window.scrollY;
     });
+    
+    console.log('✅ Login con estructura de sesión corregida inicializado');
 });
 </script>
 

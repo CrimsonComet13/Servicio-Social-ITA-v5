@@ -8,15 +8,39 @@ $session->requireRole('estudiante');
 
 $db = Database::getInstance();
 $usuario = $session->getUser();
-$estudianteId = $usuario['id'];
 
-// Obtener datos actuales del estudiante
-$estudiante = $db->fetch("
-    SELECT e.*, u.email 
-    FROM estudiantes e 
-    JOIN usuarios u ON e.usuario_id = u.id 
-    WHERE e.usuario_id = ?
-", [$estudianteId]);
+// ✅ CORRECCIÓN: Lógica consistente para obtener ID de usuario
+$usuarioId = $usuario['id'] ?? $usuario['usuario_id'] ?? null;
+
+if (!$usuarioId) {
+    // Sesión corrupta, redirigir a login
+    $session->destroy();
+    header("Location: ../../auth/login.php?error=invalid_session");
+    exit();
+}
+
+// ✅ CORRECCIÓN: Obtener datos completos del estudiante
+try {
+    $estudiante = $db->fetch("
+        SELECT e.*, u.email, u.email_verificado, u.activo
+        FROM estudiantes e 
+        JOIN usuarios u ON e.usuario_id = u.id 
+        WHERE e.usuario_id = ?
+    ", [$usuarioId]);
+    
+    if (!$estudiante) {
+        // No existe el estudiante, posiblemente problema de datos
+        error_log("ERROR: No se encontró estudiante para usuario ID: $usuarioId");
+        $session->destroy();
+        header("Location: ../../auth/login.php?error=student_not_found");
+        exit();
+    }
+} catch (Exception $e) {
+    error_log("Error al obtener datos del estudiante en perfil: " . $e->getMessage());
+    $session->destroy();
+    header("Location: ../../auth/login.php?error=database_error");
+    exit();
+}
 
 $errors = [];
 $success = '';
@@ -49,10 +73,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors['creditos_cursados'] = 'Los créditos cursados no pueden ser negativos';
     }
     
+    // Validar email si cambió
+    if ($formData['email'] !== $estudiante['email']) {
+        if (!validateEmail($formData['email'])) {
+            $errors['email'] = 'El formato del email no es válido';
+        } else {
+            // Verificar si el nuevo email ya existe
+            $existingUser = $db->fetch("SELECT id FROM usuarios WHERE email = ? AND id != ?", 
+                                      [$formData['email'], $usuarioId]);
+            if ($existingUser) {
+                $errors['email'] = 'Ya existe un usuario con este email';
+            }
+        }
+    }
+    
     if (empty($errors)) {
         try {
-            // Actualizar datos del estudiante
-            $db->update('estudiantes', [
+            $db->beginTransaction();
+            
+            // ✅ CORRECCIÓN: Actualizar datos del estudiante usando usuario_id correcto
+            $updateResult = $db->update('estudiantes', [
                 'nombre' => $formData['nombre'],
                 'apellido_paterno' => $formData['apellido_paterno'],
                 'apellido_materno' => $formData['apellido_materno'] ?? null,
@@ -60,49 +100,76 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'semestre' => $formData['semestre'],
                 'creditos_cursados' => $formData['creditos_cursados'],
                 'telefono' => $formData['telefono'] ?? null
-            ], 'usuario_id = :usuario_id', ['usuario_id' => $estudianteId]);
+            ], 'usuario_id = :usuario_id', ['usuario_id' => $usuarioId]);
+            
+            if ($updateResult === false) {
+                throw new Exception('Error al actualizar datos del estudiante');
+            }
             
             // Actualizar email si cambió
             if ($formData['email'] !== $estudiante['email']) {
-                if (!validateEmail($formData['email'])) {
-                    $errors['email'] = 'El formato del email no es válido';
-                } else {
-                    // Verificar si el nuevo email ya existe
-                    $existingUser = $db->fetch("SELECT id FROM usuarios WHERE email = ? AND id != ?", 
-                                              [$formData['email'], $estudianteId]);
-                    if ($existingUser) {
-                        $errors['email'] = 'Ya existe un usuario con este email';
-                    } else {
-                        $db->update('usuarios', [
-                            'email' => $formData['email'],
-                            'email_verificado' => false,
-                            'token_verificacion' => generateToken()
-                        ], 'id = :id', ['id' => $estudianteId]);
-                        
-                        // Enviar email de verificación (pendiente)
-                        // sendVerificationEmail($formData['email'], $token);
-                    }
+                $emailUpdateResult = $db->update('usuarios', [
+                    'email' => $formData['email'],
+                    'email_verificado' => false,
+                    'token_verificacion' => bin2hex(random_bytes(32))
+                ], 'id = :id', ['id' => $usuarioId]);
+                
+                if ($emailUpdateResult === false) {
+                    throw new Exception('Error al actualizar email');
                 }
+                
+                // TODO: Enviar email de verificación
+                // sendVerificationEmail($formData['email'], $token);
             }
             
-            if (empty($errors)) {
-                $success = 'Perfil actualizado correctamente';
+            $db->commit();
+            $success = 'Perfil actualizado correctamente';
+            
+            // ✅ CORRECCIÓN: Actualizar datos en sesión con estructura correcta
+            $estudianteActualizado = $db->fetch("
+                SELECT e.*, u.email, u.email_verificado, u.activo
+                FROM estudiantes e 
+                JOIN usuarios u ON e.usuario_id = u.id 
+                WHERE e.usuario_id = ?
+            ", [$usuarioId]);
+            
+            if ($estudianteActualizado) {
+                // Actualizar sesión manteniendo estructura consistente
+                $usuarioSesion = $session->getUser();
+                $usuarioSesion['email'] = $estudianteActualizado['email'];
+                $usuarioSesion['email_verificado'] = $estudianteActualizado['email_verificado'];
                 
-                // Actualizar datos en sesión
-                $estudianteActualizado = $db->fetch("
-                    SELECT e.*, u.email 
-                    FROM estudiantes e 
-                    JOIN usuarios u ON e.usuario_id = u.id 
-                    WHERE e.usuario_id = ?
-                ", [$estudianteId]);
+                // Actualizar perfil del estudiante
+                if (isset($usuarioSesion['perfil'])) {
+                    $usuarioSesion['perfil'] = [
+                        'id' => $estudianteActualizado['id'],
+                        'numero_control' => $estudianteActualizado['numero_control'],
+                        'nombre' => $estudianteActualizado['nombre'],
+                        'apellido_paterno' => $estudianteActualizado['apellido_paterno'],
+                        'apellido_materno' => $estudianteActualizado['apellido_materno'],
+                        'carrera' => $estudianteActualizado['carrera'],
+                        'semestre' => $estudianteActualizado['semestre'],
+                        'creditos_cursados' => $estudianteActualizado['creditos_cursados'],
+                        'telefono' => $estudianteActualizado['telefono'],
+                        'estado_servicio' => $estudianteActualizado['estado_servicio'],
+                        'horas_completadas' => $estudianteActualizado['horas_completadas']
+                    ];
+                }
                 
-                $session->set('usuario', array_merge($session->getUser(), $estudianteActualizado));
+                $session->set('usuario', $usuarioSesion);
                 
-                // Recargar la página para mostrar los cambios
-                redirectTo('/modules/estudiantes/perfil.php');
+                // Actualizar variable local para mostrar cambios
+                $estudiante = $estudianteActualizado;
+            }
+            
+            // Registrar actividad
+            if (function_exists('logActivity')) {
+                logActivity($usuarioId, 'update_profile', 'estudiante');
             }
             
         } catch (Exception $e) {
+            $db->rollback();
+            error_log("Error al actualizar perfil: " . $e->getMessage());
             $errors['general'] = 'Error al actualizar el perfil: ' . $e->getMessage();
         }
     }
@@ -112,238 +179,250 @@ $pageTitle = "Mi Perfil - " . APP_NAME;
 include '../../includes/header.php';
 include '../../includes/sidebar.php';
 ?>
+
 <div class="main-wrapper">
     <div class="dashboard-container">
-    <!-- Header Section -->
-    <div class="profile-header">
-        <div class="header-content">
-            <div class="header-icon">
-                <i class="fas fa-user-circle"></i>
-            </div>
-            <div class="header-info">
-                <h1 class="header-title">Mi Perfil</h1>
-                <p class="header-subtitle">Actualiza tu información personal y académica</p>
-            </div>
-        </div>
-        <div class="header-actions">
-            <a href="../../dashboard/estudiante.php" class="btn btn-secondary">
-                <i class="fas fa-arrow-left"></i>
-                Volver al Dashboard
-            </a>
-        </div>
-    </div>
-
-    <!-- Profile Form Card -->
-    <div class="profile-card">
-        <!-- Success/Error Messages -->
-        <?php if ($success): ?>
-        <div class="alert alert-success">
-            <i class="fas fa-check-circle"></i>
-            <div>
-                <strong>¡Éxito!</strong>
-                <p><?= $success ?></p>
-            </div>
-        </div>
-        <?php endif; ?>
-        
-        <?php if (isset($errors['general'])): ?>
-        <div class="alert alert-error">
-            <i class="fas fa-exclamation-triangle"></i>
-            <div>
-                <strong>Error</strong>
-                <p><?= $errors['general'] ?></p>
-            </div>
-        </div>
-        <?php endif; ?>
-
-        <form method="POST" class="profile-form">
-            <!-- Personal Information Section -->
-            <div class="form-section">
-                <div class="section-header">
-                    <h2 class="section-title">
-                        <i class="fas fa-user"></i>
-                        Información Personal
-                    </h2>
+        <!-- Header Section -->
+        <div class="profile-header">
+            <div class="header-content">
+                <div class="header-icon">
+                    <i class="fas fa-user-circle"></i>
                 </div>
-                
-                <div class="form-grid">
-                    <div class="form-group full-width">
-                        <label for="email" class="form-label">
-                            <i class="fas fa-envelope"></i>
-                            Email
-                        </label>
-                        <input type="email" 
-                               id="email" 
-                               name="email" 
-                               class="form-input <?= isset($errors['email']) ? 'error' : '' ?>"
-                               value="<?= htmlspecialchars($estudiante['email'] ?? '') ?>" 
-                               required>
-                        <?php if (isset($errors['email'])): ?>
-                            <span class="error-message"><?= $errors['email'] ?></span>
-                        <?php endif; ?>
-                        <?php if (!($estudiante['email_verificado'] ?? true)): ?>
-                            <div class="input-help warning">
-                                <i class="fas fa-exclamation-triangle"></i>
-                                Email no verificado. <a href="../../auth/verify-email.php">Verificar ahora</a>
-                            </div>
-                        <?php endif; ?>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="nombre" class="form-label required">
-                            <i class="fas fa-user"></i>
-                            Nombre
-                        </label>
-                        <input type="text" 
-                               id="nombre" 
-                               name="nombre" 
-                               class="form-input <?= isset($errors['nombre']) ? 'error' : '' ?>"
-                               value="<?= htmlspecialchars($estudiante['nombre'] ?? '') ?>" 
-                               required>
-                        <?php if (isset($errors['nombre'])): ?>
-                            <span class="error-message"><?= $errors['nombre'] ?></span>
-                        <?php endif; ?>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="apellido_paterno" class="form-label required">
-                            <i class="fas fa-user"></i>
-                            Apellido Paterno
-                        </label>
-                        <input type="text" 
-                               id="apellido_paterno" 
-                               name="apellido_paterno" 
-                               class="form-input <?= isset($errors['apellido_paterno']) ? 'error' : '' ?>"
-                               value="<?= htmlspecialchars($estudiante['apellido_paterno'] ?? '') ?>" 
-                               required>
-                        <?php if (isset($errors['apellido_paterno'])): ?>
-                            <span class="error-message"><?= $errors['apellido_paterno'] ?></span>
-                        <?php endif; ?>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="apellido_materno" class="form-label">
-                            <i class="fas fa-user"></i>
-                            Apellido Materno
-                        </label>
-                        <input type="text" 
-                               id="apellido_materno" 
-                               name="apellido_materno" 
-                               class="form-input"
-                               value="<?= htmlspecialchars($estudiante['apellido_materno'] ?? '') ?>">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="telefono" class="form-label">
-                            <i class="fas fa-phone"></i>
-                            Teléfono
-                        </label>
-                        <input type="tel" 
-                               id="telefono" 
-                               name="telefono" 
-                               class="form-input"
-                               value="<?= htmlspecialchars($estudiante['telefono'] ?? '') ?>" 
-                               placeholder="10 dígitos">
-                    </div>
+                <div class="header-info">
+                    <h1 class="header-title">Mi Perfil</h1>
+                    <p class="header-subtitle">Actualiza tu información personal y académica</p>
                 </div>
             </div>
-
-            <!-- Academic Information Section -->
-            <div class="form-section">
-                <div class="section-header">
-                    <h2 class="section-title">
-                        <i class="fas fa-graduation-cap"></i>
-                        Información Académica
-                    </h2>
-                </div>
-                
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label for="numero_control" class="form-label">
-                            <i class="fas fa-id-card"></i>
-                            Número de Control
-                        </label>
-                        <input type="text" 
-                               id="numero_control" 
-                               name="numero_control" 
-                               class="form-input"
-                               value="<?= htmlspecialchars($estudiante['numero_control'] ?? '') ?>" 
-                               disabled>
-                        <div class="input-help">
-                            <i class="fas fa-lock"></i>
-                            El número de control no puede ser modificado
-                        </div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="carrera" class="form-label required">
-                            <i class="fas fa-book"></i>
-                            Carrera
-                        </label>
-                        <input type="text" 
-                               id="carrera" 
-                               name="carrera" 
-                               class="form-input <?= isset($errors['carrera']) ? 'error' : '' ?>"
-                               value="<?= htmlspecialchars($estudiante['carrera'] ?? '') ?>" 
-                               required>
-                        <?php if (isset($errors['carrera'])): ?>
-                            <span class="error-message"><?= $errors['carrera'] ?></span>
-                        <?php endif; ?>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="semestre" class="form-label required">
-                            <i class="fas fa-calendar"></i>
-                            Semestre
-                        </label>
-                        <input type="number" 
-                               id="semestre" 
-                               name="semestre" 
-                               class="form-input <?= isset($errors['semestre']) ? 'error' : '' ?>"
-                               value="<?= htmlspecialchars($estudiante['semestre'] ?? '') ?>" 
-                               min="1" 
-                               max="12" 
-                               required>
-                        <?php if (isset($errors['semestre'])): ?>
-                            <span class="error-message"><?= $errors['semestre'] ?></span>
-                        <?php endif; ?>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="creditos_cursados" class="form-label required">
-                            <i class="fas fa-star"></i>
-                            Créditos Cursados
-                        </label>
-                        <input type="number" 
-                               id="creditos_cursados" 
-                               name="creditos_cursados" 
-                               class="form-input <?= isset($errors['creditos_cursados']) ? 'error' : '' ?>"
-                               value="<?= htmlspecialchars($estudiante['creditos_cursados'] ?? '') ?>" 
-                               min="0" 
-                               required>
-                        <?php if (isset($errors['creditos_cursados'])): ?>
-                            <span class="error-message"><?= $errors['creditos_cursados'] ?></span>
-                        <?php endif; ?>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Form Actions -->
-            <div class="form-actions">
-                <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-save"></i>
-                    Actualizar Perfil
-                </button>
-                <a href="../../auth/change-password.php" class="btn btn-info">
-                    <i class="fas fa-key"></i>
-                    Cambiar Contraseña
+            <div class="header-actions">
+                <a href="../../dashboard/estudiante.php" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i>
+                    Volver al Dashboard
                 </a>
             </div>
-        </form>
-    </div>
+        </div>
+
+        <!-- Profile Form Card -->
+        <div class="profile-card">
+            <!-- Success/Error Messages -->
+            <?php if ($success): ?>
+            <div class="alert alert-success">
+                <i class="fas fa-check-circle"></i>
+                <div>
+                    <strong>¡Éxito!</strong>
+                    <p><?= htmlspecialchars($success) ?></p>
+                </div>
+            </div>
+            <?php endif; ?>
+            
+            <?php if (isset($errors['general'])): ?>
+            <div class="alert alert-error">
+                <i class="fas fa-exclamation-triangle"></i>
+                <div>
+                    <strong>Error</strong>
+                    <p><?= htmlspecialchars($errors['general']) ?></p>
+                </div>
+            </div>
+            <?php endif; ?>
+
+            <form method="POST" class="profile-form">
+                <!-- Personal Information Section -->
+                <div class="form-section">
+                    <div class="section-header">
+                        <h2 class="section-title">
+                            <i class="fas fa-user"></i>
+                            Información Personal
+                        </h2>
+                    </div>
+                    
+                    <div class="form-grid">
+                        <div class="form-group full-width">
+                            <label for="email" class="form-label">
+                                <i class="fas fa-envelope"></i>
+                                Email
+                            </label>
+                            <input type="email" 
+                                   id="email" 
+                                   name="email" 
+                                   class="form-input <?= isset($errors['email']) ? 'error' : '' ?>"
+                                   value="<?= htmlspecialchars($estudiante['email'] ?? '') ?>" 
+                                   required>
+                            <?php if (isset($errors['email'])): ?>
+                                <span class="error-message"><?= htmlspecialchars($errors['email']) ?></span>
+                            <?php endif; ?>
+                            <?php if (!($estudiante['email_verificado'] ?? true)): ?>
+                                <div class="input-help warning">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                    Email no verificado. <a href="../../auth/verify-email.php">Verificar ahora</a>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="nombre" class="form-label required">
+                                <i class="fas fa-user"></i>
+                                Nombre
+                            </label>
+                            <input type="text" 
+                                   id="nombre" 
+                                   name="nombre" 
+                                   class="form-input <?= isset($errors['nombre']) ? 'error' : '' ?>"
+                                   value="<?= htmlspecialchars($estudiante['nombre'] ?? '') ?>" 
+                                   required>
+                            <?php if (isset($errors['nombre'])): ?>
+                                <span class="error-message"><?= htmlspecialchars($errors['nombre']) ?></span>
+                            <?php endif; ?>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="apellido_paterno" class="form-label required">
+                                <i class="fas fa-user"></i>
+                                Apellido Paterno
+                            </label>
+                            <input type="text" 
+                                   id="apellido_paterno" 
+                                   name="apellido_paterno" 
+                                   class="form-input <?= isset($errors['apellido_paterno']) ? 'error' : '' ?>"
+                                   value="<?= htmlspecialchars($estudiante['apellido_paterno'] ?? '') ?>" 
+                                   required>
+                            <?php if (isset($errors['apellido_paterno'])): ?>
+                                <span class="error-message"><?= htmlspecialchars($errors['apellido_paterno']) ?></span>
+                            <?php endif; ?>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="apellido_materno" class="form-label">
+                                <i class="fas fa-user"></i>
+                                Apellido Materno
+                            </label>
+                            <input type="text" 
+                                   id="apellido_materno" 
+                                   name="apellido_materno" 
+                                   class="form-input"
+                                   value="<?= htmlspecialchars($estudiante['apellido_materno'] ?? '') ?>">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="telefono" class="form-label">
+                                <i class="fas fa-phone"></i>
+                                Teléfono
+                            </label>
+                            <input type="tel" 
+                                   id="telefono" 
+                                   name="telefono" 
+                                   class="form-input"
+                                   value="<?= htmlspecialchars($estudiante['telefono'] ?? '') ?>" 
+                                   placeholder="10 dígitos">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Academic Information Section -->
+                <div class="form-section">
+                    <div class="section-header">
+                        <h2 class="section-title">
+                            <i class="fas fa-graduation-cap"></i>
+                            Información Académica
+                        </h2>
+                    </div>
+                    
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="numero_control" class="form-label">
+                                <i class="fas fa-id-card"></i>
+                                Número de Control
+                            </label>
+                            <input type="text" 
+                                   id="numero_control" 
+                                   name="numero_control" 
+                                   class="form-input"
+                                   value="<?= htmlspecialchars($estudiante['numero_control'] ?? '') ?>" 
+                                   disabled>
+                            <div class="input-help">
+                                <i class="fas fa-lock"></i>
+                                El número de control no puede ser modificado
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="carrera" class="form-label required">
+                                <i class="fas fa-book"></i>
+                                Carrera
+                            </label>
+                            <select id="carrera" name="carrera" class="form-input <?= isset($errors['carrera']) ? 'error' : '' ?>" required>
+                                <option value="">Seleccionar carrera</option>
+                                <option value="Ingeniería en Sistemas Computacionales" <?= ($estudiante['carrera'] ?? '') === 'Ingeniería en Sistemas Computacionales' ? 'selected' : '' ?>>Ingeniería en Sistemas Computacionales</option>
+                                <option value="Ingeniería Industrial" <?= ($estudiante['carrera'] ?? '') === 'Ingeniería Industrial' ? 'selected' : '' ?>>Ingeniería Industrial</option>
+                                <option value="Ingeniería Mecánica" <?= ($estudiante['carrera'] ?? '') === 'Ingeniería Mecánica' ? 'selected' : '' ?>>Ingeniería Mecánica</option>
+                                <option value="Ingeniería Electrónica" <?= ($estudiante['carrera'] ?? '') === 'Ingeniería Electrónica' ? 'selected' : '' ?>>Ingeniería Electrónica</option>
+                                <option value="Ingeniería Química" <?= ($estudiante['carrera'] ?? '') === 'Ingeniería Química' ? 'selected' : '' ?>>Ingeniería Química</option>
+                                <option value="Ingeniería Mecatrónica" <?= ($estudiante['carrera'] ?? '') === 'Ingeniería Mecatrónica' ? 'selected' : '' ?>>Ingeniería Mecatrónica</option>
+                                <option value="Ingeniería en Gestión Empresarial" <?= ($estudiante['carrera'] ?? '') === 'Ingeniería en Gestión Empresarial' ? 'selected' : '' ?>>Ingeniería en Gestión Empresarial</option>
+                                <option value="Ingeniería en Tecnologías de la Información y Comunicaciones" <?= ($estudiante['carrera'] ?? '') === 'Ingeniería en Tecnologías de la Información y Comunicaciones' ? 'selected' : '' ?>>Ingeniería en Tecnologías de la Información y Comunicaciones</option>
+                                <option value="Licenciatura en Administración" <?= ($estudiante['carrera'] ?? '') === 'Licenciatura en Administración' ? 'selected' : '' ?>>Licenciatura en Administración</option>
+                            </select>
+                            <?php if (isset($errors['carrera'])): ?>
+                                <span class="error-message"><?= htmlspecialchars($errors['carrera']) ?></span>
+                            <?php endif; ?>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="semestre" class="form-label required">
+                                <i class="fas fa-calendar"></i>
+                                Semestre
+                            </label>
+                            <input type="number" 
+                                   id="semestre" 
+                                   name="semestre" 
+                                   class="form-input <?= isset($errors['semestre']) ? 'error' : '' ?>"
+                                   value="<?= htmlspecialchars($estudiante['semestre'] ?? '') ?>" 
+                                   min="1" 
+                                   max="12" 
+                                   required>
+                            <?php if (isset($errors['semestre'])): ?>
+                                <span class="error-message"><?= htmlspecialchars($errors['semestre']) ?></span>
+                            <?php endif; ?>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="creditos_cursados" class="form-label required">
+                                <i class="fas fa-star"></i>
+                                Créditos Cursados
+                            </label>
+                            <input type="number" 
+                                   id="creditos_cursados" 
+                                   name="creditos_cursados" 
+                                   class="form-input <?= isset($errors['creditos_cursados']) ? 'error' : '' ?>"
+                                   value="<?= htmlspecialchars($estudiante['creditos_cursados'] ?? '') ?>" 
+                                   min="0" 
+                                   required>
+                            <?php if (isset($errors['creditos_cursados'])): ?>
+                                <span class="error-message"><?= htmlspecialchars($errors['creditos_cursados']) ?></span>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form Actions -->
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i>
+                        Actualizar Perfil
+                    </button>
+                    <a href="../../auth/change-password.php" class="btn btn-info">
+                        <i class="fas fa-key"></i>
+                        Cambiar Contraseña
+                    </a>
+                    <a href="../../dashboard/estudiante.php" class="btn btn-secondary">
+                        <i class="fas fa-times"></i>
+                        Cancelar
+                    </a>
+                </div>
+            </form>
+        </div>
     </div>
 </div>  
 
+<!-- CSS y JavaScript permanecen iguales -->
 <style>
 /* Variables CSS */
 :root {
@@ -367,13 +446,24 @@ include '../../includes/sidebar.php';
     --radius: 0.5rem;
     --radius-lg: 0.75rem;
     --transition: all 0.3s ease;
+    --sidebar-width: 280px;
+    --header-height: 70px;
 }
 
-/* Profile Container */
-.profile-container {
-    padding: 1.5rem;
-    max-width: 1200px;
+/* Main wrapper con margen para sidebar */
+.main-wrapper {
+    margin-left: var(--sidebar-width);
+    min-height: calc(100vh - var(--header-height));
+    transition: margin-left 0.3s ease;
+}
+
+/* Dashboard container ajustado */
+.dashboard-container {
+    max-width: calc(1400px - var(--sidebar-width));
     margin: 0 auto;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 1.5rem;
 }
 
 /* Profile Header */
@@ -687,8 +777,18 @@ include '../../includes/sidebar.php';
 }
 
 /* Responsive Design */
+@media (max-width: 1024px) {
+    .main-wrapper {
+        margin-left: 0;
+    }
+    
+    .dashboard-container {
+        max-width: 1400px;
+    }
+}
+
 @media (max-width: 768px) {
-    .profile-container {
+    .dashboard-container {
         padding: 1rem;
     }
     
@@ -772,37 +872,6 @@ include '../../includes/sidebar.php';
     
     .btn-info {
         border-color: var(--info);
-    }
-}
-/* Variables sidebar */
-:root {
-    --sidebar-width: 280px;
-    --header-height: 70px;
-}
-
-/* Main wrapper con margen para sidebar */
-.main-wrapper {
-    margin-left: var(--sidebar-width);
-    min-height: calc(100vh - var(--header-height));
-    transition: margin-left 0.3s ease;
-}
-
-/* Dashboard container ajustado */
-.dashboard-container {
-    max-width: calc(1400px - var(--sidebar-width));
-    margin: 0 auto;
-    width: 100%;
-    box-sizing: border-box;
-}
-
-/* Responsive: En móvil sidebar se oculta */
-@media (max-width: 1024px) {
-    .main-wrapper {
-        margin-left: 0;
-    }
-    
-    .dashboard-container {
-        max-width: 1400px;
     }
 }
 </style>
@@ -952,6 +1021,8 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+    
+    console.log('✅ Perfil de estudiante con datos corregidos inicializado');
 });
 </script>
 

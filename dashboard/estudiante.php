@@ -21,58 +21,118 @@ $usuario = $session->getUser();
 
 // Verificar que el usuario esté completo
 if (!$usuario || !isset($usuario['id'])) {
+    // Limpiar sesión corrupta y redirigir
+    $session->destroy();
     header("Location: ../auth/login.php");
     exit();
 }
 
-// FIX DE SESIÓN: Corregir ID para email específico con problema de sesión
-// Obtener IDs correctos de la nueva estructura de sesión
-$usuarioId = $usuario['usuario_id'] ?? $usuario['id'];
-$estudianteId = $usuario['perfil']['id'] ?? null;
-
-// Si la estructura nueva no existe, aplicar detección automática
-if (!$estudianteId) {
-    if ($usuario['email'] === '123455@gmail.com' && $usuario['id'] == 3) {
-        $estudianteId = 4; // ID correcto según la base de datos
-        $sessionFixed = true;
-    } else {
-        $estudianteId = $usuario['id'];
-        $sessionFixed = false;
+// ✅ CORRECCIÓN: Lógica consistente para obtener IDs
+function obtenerDatosEstudiante($usuario, $db) {
+    $usuarioId = $usuario['id'] ?? $usuario['usuario_id'] ?? null;
+    
+    if (!$usuarioId) {
+        throw new Exception('ID de usuario no válido en sesión');
     }
-} else {
-    $sessionFixed = false;
-}
-
-// Mostrar mensaje de fix si se aplicó
-if ($sessionFixed) {
-    $fixMessage = [
-        'show' => true,
-        'email' => $usuario['email'],
-        'oldId' => $usuario['id'],
-        'newId' => $estudianteId
-    ];
-} else {
-    $fixMessage = ['show' => false];
+    
+    // Obtener datos del estudiante usando usuario_id
+    $estudiante = $db->fetch("
+        SELECT e.*, u.email, u.email_verificado
+        FROM estudiantes e 
+        JOIN usuarios u ON e.usuario_id = u.id 
+        WHERE e.usuario_id = ?
+    ", [$usuarioId]);
+    
+    if (!$estudiante) {
+        throw new Exception('No se encontraron datos de estudiante para usuario ID: ' . $usuarioId);
+    }
+    
+    return $estudiante;
 }
 
 // Obtener datos del estudiante con manejo de errores
 try {
-    $estudiante = $db->fetch("
-        SELECT e.*, u.email 
-        FROM estudiantes e 
-        JOIN usuarios u ON e.usuario_id = u.id 
-        WHERE e.usuario_id = ?
-    ", [$estudianteId]) ?: [];
+    $estudiante = obtenerDatosEstudiante($usuario, $db);
 } catch (Exception $e) {
     error_log("Error al obtener datos del estudiante: " . $e->getMessage());
-    $estudiante = [];
-}
+    
+    // Intentar reconstruir sesión
+    $usuarioId = $usuario['id'] ?? $usuario['usuario_id'] ?? null;
+    if ($usuarioId) {
+        $datosCompletos = $db->fetch("
+            SELECT u.id, u.email, u.tipo_usuario, u.activo, u.email_verificado,
+                   e.id as estudiante_id, e.numero_control, e.nombre, e.apellido_paterno, 
+                   e.apellido_materno, e.carrera, e.semestre, e.creditos_cursados, 
+                   e.telefono, e.estado_servicio, e.horas_completadas
+            FROM usuarios u
+            LEFT JOIN estudiantes e ON u.id = e.usuario_id
+            WHERE u.id = ? AND u.tipo_usuario = 'estudiante'
+        ", [$usuarioId]);
+        
+        if ($datosCompletos && $datosCompletos['estudiante_id']) {
+            // Reconstruir sesión con estructura correcta
+            $sessionData = [
+                'id' => $datosCompletos['id'],
+                'usuario_id' => $datosCompletos['id'],
+                'email' => $datosCompletos['email'],
+                'tipo_usuario' => $datosCompletos['tipo_usuario'],
+                'activo' => $datosCompletos['activo'],
+                'email_verificado' => $datosCompletos['email_verificado'],
+                'perfil' => [
+                    'id' => $datosCompletos['estudiante_id'],
+                    'numero_control' => $datosCompletos['numero_control'],
+                    'nombre' => $datosCompletos['nombre'],
+                    'apellido_paterno' => $datosCompletos['apellido_paterno'],
+                    'apellido_materno' => $datosCompletos['apellido_materno'],
+                    'carrera' => $datosCompletos['carrera'],
+                    'semestre' => $datosCompletos['semestre'],
+                    'creditos_cursados' => $datosCompletos['creditos_cursados'],
+                    'telefono' => $datosCompletos['telefono'],
+                    'estado_servicio' => $datosCompletos['estado_servicio'],
+                    'horas_completadas' => $datosCompletos['horas_completadas']
+                ]
+            ];
+            
+            $session->set('usuario', $sessionData);
+            $usuario = $sessionData;
+            
+            // Usar datos reconstruidos
+            $estudiante = [
+                'id' => $datosCompletos['estudiante_id'],
+                'usuario_id' => $datosCompletos['id'],
+                'numero_control' => $datosCompletos['numero_control'],
+                'nombre' => $datosCompletos['nombre'],
+                'apellido_paterno' => $datosCompletos['apellido_paterno'],
+                'apellido_materno' => $datosCompletos['apellido_materno'],
+                'carrera' => $datosCompletos['carrera'],
+                'semestre' => $datosCompletos['semestre'],
+                'creditos_cursados' => $datosCompletos['creditos_cursados'],
+                'telefono' => $datosCompletos['telefono'],
+                'estado_servicio' => $datosCompletos['estado_servicio'],
+                'horas_completadas' => $datosCompletos['horas_completadas'],
+                'email' => $datosCompletos['email'],
+                'email_verificado' => $datosCompletos['email_verificado']
+            ];
+            
+            $sessionFixed = true;
+        } else {
+            // No se pudo recuperar, redirigir a login
+            $session->destroy();
+            header("Location: ../auth/login.php?error=session_corrupted");
+            exit();
+        }
+    } else {
+        $session->destroy();
+        header("Location: ../auth/login.php?error=invalid_user");
+        exit();
+    }
+} 
 
-// Si no se encuentra el estudiante, redirigir
-if (!$estudiante || !isset($estudiante['id'])) {
-    header("Location: ../auth/login.php");
-    exit();
-}
+// Mostrar mensaje de reconstrucción si fue necesario
+$fixMessage = isset($sessionFixed) && $sessionFixed ? [
+    'show' => true,
+    'message' => 'Sesión reconstruida automáticamente'
+] : ['show' => false];
 
 // Obtener solicitud activa con manejo de errores
 try {
@@ -243,7 +303,6 @@ function getEstadoTitle($estado) {
     }
 }
 
-// FUNCIÓN RENOMBRADA PARA EVITAR CONFLICTO CON functions.php
 function getEstadoTextDashboard($estado) {
     switch($estado) {
         case 'sin_solicitud': return 'Sin Solicitud Activa';
@@ -302,12 +361,11 @@ include '../includes/sidebar.php';
     <div class="session-fix-alert">
         <div class="session-fix-content">
             <div class="session-fix-icon">
-                <i class="fas fa-wrench"></i>
+                <i class="fas fa-check-circle"></i>
             </div>
             <div class="session-fix-text">
-                <strong>Fix de Sesión Aplicado:</strong> Se detectó un problema con el ID de usuario en la sesión. 
-                Usando usuario_id = <?= $fixMessage['newId'] ?> en lugar de <?= $fixMessage['oldId'] ?> para el email <?= htmlspecialchars($fixMessage['email']) ?>.
-                <small>(Recomendación: Hacer logout/login para corregir permanentemente)</small>
+                <strong>Sesión Restaurada:</strong> <?= htmlspecialchars($fixMessage['message']) ?>
+                <small>Los datos de tu perfil se han cargado correctamente.</small>
             </div>
             <button class="session-fix-close" onclick="this.parentElement.parentElement.style.display='none'">
                 <i class="fas fa-times"></i>
@@ -493,10 +551,10 @@ include '../includes/sidebar.php';
                         </div>
                     </div>
                     <div class="status-actions">
-                        <a href="/servicio_social_ita/modules/estudiantes/documentos.php" class="btn btn-primary">
+                        <a href="../modules/estudiantes/documentos.php" class="btn btn-primary">
                             Descargar Oficio
                         </a>
-                        <a href="/servicio_social_ita/modules/estudiantes/reportes.php" class="btn btn-secondary">
+                        <a href="../modules/estudiantes/reportes.php" class="btn btn-secondary">
                             Comenzar
                         </a>
                     </div>
@@ -529,10 +587,10 @@ include '../includes/sidebar.php';
                         </div>
                     </div>
                     <div class="status-actions">
-                        <a href="/servicio_social_ita/modules/estudiantes/reportes.php" class="btn btn-primary">
+                        <a href="../modules/estudiantes/reportes.php" class="btn btn-primary">
                             <?= !empty($reportesPendientes) ? 'Entregar Reportes' : 'Gestionar Reportes' ?>
                         </a>
-                        <a href="/servicio_social_ita/modules/estudiantes/horas.php" class="btn btn-secondary">
+                        <a href="../modules/estudiantes/horas.php" class="btn btn-secondary">
                             Registrar Horas
                         </a>
                     </div>
@@ -547,7 +605,7 @@ include '../includes/sidebar.php';
                         <i class="fas fa-history"></i>
                         Actividades Recientes
                     </h2>
-                    <a href="/servicio_social_ita/modules/estudiantes/actividades.php" class="section-link">Ver todas</a>
+                    <a href="../modules/estudiantes/actividades.php" class="section-link">Ver todas</a>
                 </div>
 
                 <div class="activities-list">
@@ -566,39 +624,26 @@ include '../includes/sidebar.php';
                         <?php endforeach; ?>
                     <?php else: ?>
                         <div class="activity-item">
-                            <div class="activity-icon info">
-                                <i class="fas fa-info-circle"></i>
+                            <div class="activity-icon success">
+                                <i class="fas fa-check-circle"></i>
                             </div>
                             <div class="activity-content">
-                                <h4>Dashboard Funcionando</h4>
-                                <p>El dashboard está funcionando correctamente con todos los datos del estudiante</p>
+                                <h4>Dashboard Funcionando Correctamente</h4>
+                                <p>Sesión restaurada exitosamente. Datos del estudiante: <?= htmlspecialchars($estudiante['nombre'] ?? 'Sin nombre') ?> (<?= htmlspecialchars($estudiante['numero_control'] ?? 'Sin número') ?>)</p>
                                 <span class="activity-date">Ahora</span>
                             </div>
                         </div>
                         
                         <div class="activity-item">
-                            <div class="activity-icon success">
-                                <i class="fas fa-user"></i>
+                            <div class="activity-icon info">
+                                <i class="fas fa-info-circle"></i>
                             </div>
                             <div class="activity-content">
-                                <h4>Perfil Completo</h4>
-                                <p>Datos del estudiante: <?= htmlspecialchars($estudiante['nombre'] ?? 'Sin nombre') ?> (<?= htmlspecialchars($estudiante['numero_control'] ?? 'Sin número') ?>)</p>
-                                <span class="activity-date">Sesión actual</span>
+                                <h4>Sistema Listo</h4>
+                                <p>El sistema está funcionando correctamente. Puedes comenzar a enviar solicitudes y gestionar tu servicio social.</p>
+                                <span class="activity-date">Sistema activo</span>
                             </div>
                         </div>
-                        
-                        <?php if ($fixMessage['show']): ?>
-                        <div class="activity-item">
-                            <div class="activity-icon warning">
-                                <i class="fas fa-wrench"></i>
-                            </div>
-                            <div class="activity-content">
-                                <h4>Sesión Corregida</h4>
-                                <p>Se aplicó un fix temporal para corregir el ID de usuario en la sesión</p>
-                                <span class="activity-date">Fix aplicado</span>
-                            </div>
-                        </div>
-                        <?php endif; ?>
                     <?php endif; ?>
                 </div>
             </div>
@@ -676,7 +721,7 @@ include '../includes/sidebar.php';
                         <i class="fas fa-file-download"></i>
                         Documentos Recientes
                     </h3>
-                    <a href="/servicio_social_ita/modules/estudiantes/documentos.php" class="widget-link">Ver todos</a>
+                    <a href="../modules/estudiantes/documentos.php" class="widget-link">Ver todos</a>
                 </div>
                 <div class="widget-content">
                     <div class="documents-list">
@@ -715,7 +760,7 @@ include '../includes/sidebar.php';
                 </div>
                 <div class="widget-content">
                     <div class="quick-actions">
-                        <a href="/servicio_social_ita/modules/estudiantes/perfil.php" class="quick-action">
+                        <a href="../modules/estudiantes/perfil.php" class="quick-action">
                             <div class="action-icon">
                                 <i class="fas fa-user"></i>
                             </div>
@@ -725,7 +770,7 @@ include '../includes/sidebar.php';
                             </div>
                         </a>
                         
-                        <a href="/servicio_social_ita/modules/estudiantes/solicitud.php" class="quick-action">
+                        <a href="../modules/estudiantes/solicitud.php" class="quick-action">
                             <div class="action-icon">
                                 <i class="fas fa-paper-plane"></i>
                             </div>
@@ -735,7 +780,7 @@ include '../includes/sidebar.php';
                             </div>
                         </a>
                         
-                        <a href="/servicio_social_ita/modules/estudiantes/reportes.php" class="quick-action">
+                        <a href="../modules/estudiantes/reportes.php" class="quick-action">
                             <div class="action-icon">
                                 <i class="fas fa-file-alt"></i>
                             </div>
@@ -1955,97 +2000,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 500);
     }
     
-    // Animación de contador para los números de métricas
-    const numbers = document.querySelectorAll('.metric-number');
-    numbers.forEach(numberElement => {
-        const finalNumber = parseInt(numberElement.textContent);
-        let currentNumber = 0;
-        const increment = finalNumber / 30;
-        
-        function animateNumber() {
-            if (currentNumber < finalNumber) {
-                currentNumber += increment;
-                numberElement.textContent = Math.floor(Math.min(currentNumber, finalNumber));
-                requestAnimationFrame(animateNumber);
-            } else {
-                numberElement.textContent = finalNumber;
-            }
-        }
-        
-        setTimeout(() => {
-            animateNumber();
-        }, Math.random() * 500 + 200);
-    });
-    
-    // Efecto hover mejorado para las métricas
-    const metricItems = document.querySelectorAll('.metric-item');
-    metricItems.forEach(item => {
-        item.addEventListener('mouseenter', function() {
-            this.style.transform = 'translateX(10px) scale(1.02)';
-        });
-        
-        item.addEventListener('mouseleave', function() {
-            this.style.transform = 'translateX(0) scale(1)';
-        });
-    });
-    
-    // Animación para el progreso circular del widget
-    const progressCircles = document.querySelectorAll('.progress-circle');
-    progressCircles.forEach(circle => {
-        const percentage = circle.getAttribute('data-percentage');
-        circle.style.setProperty('--percentage', percentage);
-    });
-    
-    // Add hover effects to cards
-    const cards = document.querySelectorAll('.activity-item, .document-item, .quick-action');
-    cards.forEach(card => {
-        card.addEventListener('mouseenter', function() {
-            this.style.transform = 'translateY(-2px)';
-            this.style.boxShadow = 'var(--shadow-lg)';
-        });
-        
-        card.addEventListener('mouseleave', function() {
-            this.style.transform = '';
-            this.style.boxShadow = '';
-        });
-    });
-    
-    // Add loading states to buttons
-    const buttons = document.querySelectorAll('.btn');
-    buttons.forEach(button => {
-        button.addEventListener('click', function(e) {
-            // Solo agregar loading si no es un enlace externo
-            if (this.getAttribute('href') && !this.getAttribute('href').startsWith('#')) {
-                return; // Permitir navegación normal
-            }
-            
-            this.classList.add('loading');
-            const originalText = this.innerHTML;
-            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cargando...';
-            
-            setTimeout(() => {
-                this.classList.remove('loading');
-                this.innerHTML = originalText;
-            }, 2000);
-        });
-    });
-    
-    // Smooth scroll for internal links
-    const internalLinks = document.querySelectorAll('a[href^="#"]');
-    internalLinks.forEach(link => {
-        link.addEventListener('click', function(e) {
-            e.preventDefault();
-            const targetId = this.getAttribute('href').substring(1);
-            const targetElement = document.getElementById(targetId);
-            if (targetElement) {
-                targetElement.scrollIntoView({
-                    behavior: 'smooth'
-                });
-            }
-        });
-    });
-    
-    // Auto-hide session fix alert after 10 seconds
+    // Auto-hide session fix alert after 5 seconds
     const sessionAlert = document.querySelector('.session-fix-alert');
     if (sessionAlert) {
         setTimeout(() => {
@@ -2054,10 +2009,10 @@ document.addEventListener('DOMContentLoaded', function() {
             setTimeout(() => {
                 sessionAlert.style.display = 'none';
             }, 300);
-        }, 10000);
+        }, 5000);
     }
     
-    console.log('Dashboard del estudiante con sidebar corregido inicializado');
+    console.log('✅ Dashboard del estudiante con datos corregidos inicializado');
 });
 </script>
 
