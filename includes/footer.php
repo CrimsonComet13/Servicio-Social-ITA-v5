@@ -237,27 +237,36 @@ function getSafeUserEmail($usuario) {
     <script src="../assets/js/charts.js"></script>
     <?php endif; ?>
     
-    <!-- (El CSS y JavaScript permanecen iguales) -->
     <style>
-    /* Footer Styles - Versión Compacta */
+    /* ================================
+       FOOTER STYLES - CORREGIDO PARA SIDEBAR
+    ================================ */
+    
+    /* ⭐ FOOTER PARA USUARIOS LOGUEADOS - SOLUCIÓN PRINCIPAL */
     .app-footer {
         background: var(--bg-white);
         border-top: 1px solid var(--border);
         margin-top: 2rem;
-        margin-left: var(--sidebar-width);
+        /* ⭐ ESTOS MÁRGENES SOLUCIONAN LA SUPERPOSICIÓN */
+        margin-left: var(--sidebar-width);  /* En desktop */
+        width: calc(100% - var(--sidebar-width));  /* Ancho correcto */
         transition: var(--transition);
     }
     
+    /* Footer para usuarios no autenticados */
     .landing-footer {
         background: linear-gradient(135deg, var(--bg-dark) 0%, var(--bg-darker) 100%);
         color: white;
         margin-top: 2rem;
+        /* Sin margen lateral para usuarios no logueados */
+        margin-left: 0;
+        width: 100%;
     }
     
     .footer-container {
         max-width: 1200px;
         margin: 0 auto;
-        padding: 2rem 2rem 0;
+        padding: 2rem;
     }
     
     .footer-content {
@@ -278,7 +287,7 @@ function getSafeUserEmail($usuario) {
         color: white;
     }
     
-    /* Footer Brand - Más espacio */
+    /* Footer Brand */
     .footer-brand {
         display: flex;
         align-items: center;
@@ -326,7 +335,7 @@ function getSafeUserEmail($usuario) {
         color: #d1d5db;
     }
     
-    /* Footer Navigation - Más compacto */
+    /* Footer Navigation */
     .footer-nav {
         display: flex;
         flex-direction: column;
@@ -357,7 +366,7 @@ function getSafeUserEmail($usuario) {
         color: var(--primary-light);
     }
     
-    /* Footer Info - Más compacto */
+    /* Footer Info */
     .footer-info {
         display: flex;
         flex-direction: column;
@@ -378,7 +387,7 @@ function getSafeUserEmail($usuario) {
         font-size: 0.7rem;
     }
     
-    /* Contact Info - Más compacto */
+    /* Contact Info */
     .contact-info {
         display: flex;
         flex-direction: column;
@@ -410,7 +419,7 @@ function getSafeUserEmail($usuario) {
         color: var(--primary-light);
     }
     
-    /* Social Links - Con más espacio */
+    /* Social Links */
     .social-links {
         display: flex;
         gap: 0.5rem;
@@ -438,7 +447,7 @@ function getSafeUserEmail($usuario) {
         transform: translateY(-1px);
     }
     
-    /* Footer Bottom - Más espacio */
+    /* Footer Bottom */
     .footer-bottom {
         border-top: 1px solid var(--border);
         padding: 1.5rem 0;
@@ -500,7 +509,7 @@ function getSafeUserEmail($usuario) {
         color: var(--primary-light);
     }
     
-    /* Footer Actions - Más pequeño */
+    /* Footer Actions */
     .footer-actions {
         display: flex;
         align-items: center;
@@ -528,7 +537,7 @@ function getSafeUserEmail($usuario) {
         border-color: var(--primary);
     }
     
-    /* Footer Stats - Más compacto */
+    /* Footer Stats */
     .footer-stats {
         display: flex;
         gap: 1.5rem;
@@ -563,10 +572,12 @@ function getSafeUserEmail($usuario) {
         max-width: 180px;
     }
     
-    /* Responsive - Ajustado para footer compacto */
+    /* ⭐ RESPONSIVE - CRÍTICO PARA LA SOLUCIÓN */
     @media (max-width: 1024px) {
+        /* REMOVER MÁRGENES EN MÓVILES - SOLUCIÓN CLAVE */
         .app-footer {
-            margin-left: 0;
+            margin-left: 0;  /* Sin margen en móviles */
+            width: 100%;     /* Ancho completo en móviles */
         }
         
         .footer-content {
@@ -784,6 +795,8 @@ function getSafeUserEmail($usuario) {
                 }, 200);
             });
         });
+        
+        console.log('Footer con layout corregido inicializado');
     });
     </script>
     

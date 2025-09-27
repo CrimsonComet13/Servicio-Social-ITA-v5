@@ -71,7 +71,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         
                         if (empty($error)) {
                             // Configurar sesión con datos completos
-                            $userComplete = array_merge($user, $userData);
+                            $userComplete = $user;
+                            $userComplete['perfil'] = $userData;
+                            $userComplete['usuario_id'] = $user['id'];
                             $session->set('usuario', $userComplete);
                             
                             // Verificar que la sesión se guardó correctamente

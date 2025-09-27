@@ -586,12 +586,13 @@ function validateAndClean($data, $rules) {
 // Funciones para manejo de sesiones de estudiantes específicas
 function getEstudianteData($usuarioId) {
     $db = Database::getInstance();
-    return $db->fetch("
-        SELECT e.*, u.email 
+    $estudiante = $db->fetch("
+        SELECT e.* 
         FROM estudiantes e 
-        JOIN usuarios u ON e.usuario_id = u.id 
         WHERE e.usuario_id = ?
     ", [$usuarioId]);
+    
+    return $estudiante ?: [];
 }
 
 function getJefeDepartamentoData($usuarioId) {

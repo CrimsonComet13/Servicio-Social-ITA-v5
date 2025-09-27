@@ -26,11 +26,20 @@ if (!$usuario || !isset($usuario['id'])) {
 }
 
 // FIX DE SESIÓN: Corregir ID para email específico con problema de sesión
-if ($usuario['email'] === '123455@gmail.com' && $usuario['id'] == 3) {
-    $estudianteId = 4; // ID correcto según la base de datos
-    $sessionFixed = true;
+// Obtener IDs correctos de la nueva estructura de sesión
+$usuarioId = $usuario['usuario_id'] ?? $usuario['id'];
+$estudianteId = $usuario['perfil']['id'] ?? null;
+
+// Si la estructura nueva no existe, aplicar detección automática
+if (!$estudianteId) {
+    if ($usuario['email'] === '123455@gmail.com' && $usuario['id'] == 3) {
+        $estudianteId = 4; // ID correcto según la base de datos
+        $sessionFixed = true;
+    } else {
+        $estudianteId = $usuario['id'];
+        $sessionFixed = false;
+    }
 } else {
-    $estudianteId = $usuario['id'];
     $sessionFixed = false;
 }
 
@@ -284,7 +293,8 @@ $chartsJS = true;
 include '../includes/header.php';
 include '../includes/sidebar.php';
 ?>
-<div class="main-wrapper">
+
+<!-- ⭐ ESTRUCTURA PRINCIPAL CORREGIDA PARA SIDEBAR -->
 <div class="dashboard-container">
     
     <!-- Mensaje de Fix de Sesión si es necesario -->
@@ -750,10 +760,10 @@ include '../includes/sidebar.php';
         </div>
     </div>
 </div>
-</div> <!-- .main-wrapper -->
 
+<!-- ⭐ CSS ACTUALIZADO PARA SIDEBAR CORREGIDO -->
 <style>
-/* Variables CSS */
+/* Variables CSS - ya están en header.php, pero por si acaso */
 :root {
     --primary: #6366f1;
     --primary-light: #818cf8;
@@ -775,13 +785,18 @@ include '../includes/sidebar.php';
     --radius: 0.5rem;
     --radius-lg: 0.75rem;
     --transition: all 0.3s ease;
+    /* Variables críticas ya definidas en header.php */
+    --header-height: 80px;
+    --sidebar-width: 280px;
 }
 
-/* Dashboard Container */
+/* ⭐ DASHBOARD CONTAINER - AJUSTADO PARA SIDEBAR */
 .dashboard-container {
     padding: 1.5rem;
-    max-width: 1400px;
-    margin: 0 auto;
+    max-width: none;  /* Sin limitación de ancho */
+    margin: 0;        /* Sin margin auto que puede centrar */
+    width: 100%;      /* Usar todo el ancho disponible */
+    /* El margen izquierdo se maneja en main-content desde header.php */
 }
 
 /* Session Fix Alert */
@@ -1807,7 +1822,7 @@ include '../includes/sidebar.php';
     animation-delay: 0.3s;
 }
 
-/* Responsive Design */
+/* ⭐ RESPONSIVE DESIGN - CRÍTICO PARA SIDEBAR */
 @media (max-width: 1200px) {
     .status-overview-redesign {
         grid-template-columns: 1fr;
@@ -1829,13 +1844,14 @@ include '../includes/sidebar.php';
         text-align: center;
         gap: 1.5rem;
     }
-}
-
-@media (max-width: 768px) {
+    
+    /* Dashboard container ajustes móviles */
     .dashboard-container {
         padding: 1rem;
     }
-    
+}
+
+@media (max-width: 768px) {
     .dashboard-header {
         flex-direction: column;
         align-items: flex-start;
@@ -1889,6 +1905,10 @@ include '../includes/sidebar.php';
     
     .progress-value {
         font-size: 1.25rem;
+    }
+    
+    .dashboard-container {
+        padding: 0.75rem;
     }
 }
 </style>
@@ -2036,6 +2056,8 @@ document.addEventListener('DOMContentLoaded', function() {
             }, 300);
         }, 10000);
     }
+    
+    console.log('Dashboard del estudiante con sidebar corregido inicializado');
 });
 </script>
 

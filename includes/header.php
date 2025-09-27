@@ -73,6 +73,9 @@ function getFlashMessageHeader() {
     
     <!-- CSS del Header -->
     <style>
+        /* ================================
+           VARIABLES CSS PRINCIPALES
+        ================================ */
         :root {
             --primary: #6366f1;
             --primary-light: #8b8cf7;
@@ -82,19 +85,30 @@ function getFlashMessageHeader() {
             --info: #3b82f6;
             --bg-white: #ffffff;
             --bg-light: #f8fafc;
+            --bg-gray: #f3f4f6;
+            --bg-dark: #1f2937;
+            --bg-darker: #111827;
             --text-primary: #1f2937;
             --text-secondary: #6b7280;
             --text-light: #9ca3af;
             --border: #e5e7eb;
             --border-light: #f3f4f6;
             --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
             --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
             --radius: 12px;
             --radius-lg: 16px;
             --transition: all 0.3s ease;
+            
+            /* ⭐ VARIABLES CRÍTICAS PARA LAYOUT - SOLUCIONAN EL PROBLEMA */
             --header-height: 80px;
+            --sidebar-width: 280px;
         }
 
+        /* ================================
+           LAYOUT PRINCIPAL - SOLUCIÓN COMPLETA
+        ================================ */
+        
         * {
             margin: 0;
             padding: 0;
@@ -107,6 +121,39 @@ function getFlashMessageHeader() {
             color: var(--text-primary);
             background: var(--bg-light);
             overflow-x: hidden;
+        }
+
+        /* ⭐ SOLUCIÓN PRINCIPAL - Layout para usuarios logueados */
+        body.logged-in .main-content {
+            margin-top: var(--header-height);
+            margin-left: var(--sidebar-width);  /* ESTO EVITA LA SUPERPOSICIÓN */
+            min-height: calc(100vh - var(--header-height));
+            transition: var(--transition);
+            width: calc(100% - var(--sidebar-width));
+        }
+
+        /* Dashboard container sin limitaciones que causen problemas */
+        body.logged-in .dashboard-container {
+            padding: 1.5rem;
+            max-width: none;  /* Remover limitación */
+            margin: 0;        /* Sin margin auto */
+            width: 100%;      /* Usar todo el ancho disponible */
+        }
+
+        /* Main wrapper si existe */
+        body.logged-in .main-wrapper {
+            margin-left: 0;   /* No necesita margen adicional */
+            width: 100%;
+        }
+
+        /* ⭐ FOOTER - Corregir superposición */
+        body.logged-in .app-footer {
+            background: var(--bg-white);
+            border-top: 1px solid var(--border);
+            margin-top: 2rem;
+            margin-left: var(--sidebar-width);  /* EVITA SUPERPOSICIÓN CON SIDEBAR */
+            transition: var(--transition);
+            width: calc(100% - var(--sidebar-width));
         }
 
         /* Header principal */
@@ -160,6 +207,19 @@ function getFlashMessageHeader() {
             margin: 3px 0;
             transition: var(--transition);
             border-radius: 1px;
+        }
+
+        /* Animación del hamburger */
+        .mobile-menu-toggle.active .hamburger-line:nth-child(1) {
+            transform: rotate(45deg) translate(5px, 5px);
+        }
+
+        .mobile-menu-toggle.active .hamburger-line:nth-child(2) {
+            opacity: 0;
+        }
+
+        .mobile-menu-toggle.active .hamburger-line:nth-child(3) {
+            transform: rotate(-45deg) translate(7px, -6px);
         }
 
         /* Brand */
@@ -624,12 +684,6 @@ function getFlashMessageHeader() {
             transform: none;
         }
 
-        /* Main Content */
-        .main-content {
-            margin-top: var(--header-height);
-            min-height: calc(100vh - var(--header-height));
-        }
-
         /* Flash Messages */
         .flash-message {
             position: fixed;
@@ -668,10 +722,45 @@ function getFlashMessageHeader() {
             }
         }
 
-        /* Responsive */
+        /* Overlay para móvil */
+        .mobile-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            opacity: 0;
+            visibility: hidden;
+            transition: var(--transition);
+        }
+
+        body.mobile-menu-open .mobile-overlay {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* Prevenir scroll del body cuando menu está abierto */
+        body.mobile-menu-open {
+            overflow: hidden !important;
+        }
+
+        /* ⭐ RESPONSIVE DESIGN - CRÍTICO PARA LA SOLUCIÓN */
         @media (max-width: 1024px) {
-            .logged-in .main-content {
+            /* Remover márgenes en pantallas pequeñas */
+            body.logged-in .main-content {
                 margin-left: 0;
+                width: 100%;
+            }
+            
+            body.logged-in .app-footer {
+                margin-left: 0;
+                width: 100%;
+            }
+            
+            .mobile-menu-toggle {
+                display: flex;
             }
         }
 
@@ -679,10 +768,6 @@ function getFlashMessageHeader() {
             .header-container {
                 padding: 0 1rem;
                 gap: 1rem;
-            }
-
-            .mobile-menu-toggle {
-                display: flex;
             }
 
             .brand-info {
@@ -702,6 +787,10 @@ function getFlashMessageHeader() {
             .logout-modal {
                 min-width: 300px;
                 margin: 1rem;
+            }
+            
+            :root {
+                --header-height: 70px;  /* Header más pequeño en móviles */
             }
         }
 
@@ -745,11 +834,9 @@ function getFlashMessageHeader() {
             <!-- Mobile Menu Toggle -->
             <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Menú"
             onclick="toggleMobileMenu()">
-             <span class="menu-icon">
                 <span class="hamburger-line"></span>
                 <span class="hamburger-line"></span>
                 <span class="hamburger-line"></span>
-                </span>
             </button>
             
             <!-- Logo y Brand -->
@@ -835,7 +922,6 @@ function getFlashMessageHeader() {
                         </div>
                         
                         <nav class="user-menu-nav">
-                            
                             <a href="../help.php" class="user-menu-item">
                                 <i class="fas fa-question-circle"></i>
                                 <span>Ayuda</span>
@@ -869,6 +955,9 @@ function getFlashMessageHeader() {
     
     <!-- Overlay del Modal -->
     <div class="logout-modal-overlay" id="logoutModalOverlay" onclick="closeLogoutModal()"></div>
+    
+    <!-- Mobile Overlay -->
+    <div class="mobile-overlay" id="mobileOverlay" onclick="toggleMobileMenu()"></div>
     <?php endif; ?>
     
     <!-- Flash Messages -->
@@ -888,13 +977,37 @@ function getFlashMessageHeader() {
 
 <script>
 // ================================
+// FUNCIÓN PARA TOGGLE MÓVIL - ACTUALIZADA
+// ================================
+
+function toggleMobileMenu() {
+    const sidebar = document.getElementById('appSidebar');
+    const body = document.body;
+    const mobileToggle = document.getElementById('mobileMenuToggle');
+    const overlay = document.getElementById('mobileOverlay');
+    
+    if (sidebar && mobileToggle) {
+        // Toggle classes
+        sidebar.classList.toggle('mobile-open');
+        body.classList.toggle('mobile-menu-open');
+        mobileToggle.classList.toggle('active');
+        if (overlay) overlay.classList.toggle('active');
+        
+        // Prevenir scroll del body cuando menu está abierto
+        if (body.classList.contains('mobile-menu-open')) {
+            body.style.overflow = 'hidden';
+        } else {
+            body.style.overflow = '';
+        }
+    }
+}
+
+// ================================
 // SISTEMA DE LOGOUT SIMPLIFICADO
 // ================================
 
-// Variables globales
 let logoutInProgress = false;
 
-// Función para mostrar modal de logout
 function showLogoutModal() {
     const modal = document.getElementById('logoutModal');
     const overlay = document.getElementById('logoutModalOverlay');
@@ -904,7 +1017,6 @@ function showLogoutModal() {
         overlay.classList.add('active');
         document.body.style.overflow = 'hidden';
         
-        // Cerrar dropdown de usuario
         const userDropdown = document.getElementById('userDropdown');
         if (userDropdown) {
             userDropdown.classList.remove('active');
@@ -912,7 +1024,6 @@ function showLogoutModal() {
     }
 }
 
-// Función para cerrar modal de logout
 function closeLogoutModal() {
     const modal = document.getElementById('logoutModal');
     const overlay = document.getElementById('logoutModalOverlay');
@@ -924,7 +1035,6 @@ function closeLogoutModal() {
     }
 }
 
-// Función principal de logout simplificada
 async function executeLogout() {
     if (logoutInProgress) return;
     
@@ -932,32 +1042,25 @@ async function executeLogout() {
     const logoutBtn = document.getElementById('logoutBtn');
     
     try {
-        // Mostrar estado de carga
         if (logoutBtn) {
             logoutBtn.disabled = true;
             logoutBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cerrando...';
         }
         
-        // Calcular URL de logout de manera simple
         const currentPath = window.location.pathname;
         const pathSegments = currentPath.split('/');
         
-        // Remover archivo actual y llegar a la raíz del proyecto
         while (pathSegments.length > 0 && pathSegments[pathSegments.length - 1] !== 'servicio_social_ita') {
             pathSegments.pop();
         }
         
         if (pathSegments.length === 0 || pathSegments[pathSegments.length - 1] !== 'servicio_social_ita') {
-            // Fallback: asumir que estamos en subcarpeta
             pathSegments.push('servicio_social_ita');
         }
         
         const baseUrl = window.location.origin + pathSegments.join('/') + '/';
         const logoutUrl = baseUrl + 'auth/logout.php';
         
-        console.log('Ejecutando logout en:', logoutUrl);
-        
-        // Intentar logout AJAX
         try {
             const response = await fetch(logoutUrl, {
                 method: 'POST',
@@ -984,8 +1087,6 @@ async function executeLogout() {
             console.warn('AJAX logout falló:', ajaxError);
         }
         
-        // Fallback: redirección directa
-        console.log('Usando fallback de redirección directa');
         clearLocalData();
         window.location.href = logoutUrl + '?action=force';
         
@@ -995,29 +1096,20 @@ async function executeLogout() {
     }
 }
 
-// Manejar logout exitoso
 function handleLogoutSuccess(redirectUrl) {
-    console.log('Logout exitoso, redirigiendo a:', redirectUrl);
-    
     clearLocalData();
     closeLogoutModal();
     
-    // Mostrar mensaje temporal
     showTempMessage('Sesión cerrada exitosamente', 'success');
     
-    // Redirigir después de un momento
     setTimeout(() => {
         window.location.href = redirectUrl;
     }, 1000);
 }
 
-// Manejar error en logout
 function handleLogoutError() {
-    console.error('Error en logout, usando método de emergencia');
-    
     clearLocalData();
     
-    // Calcular URL base para emergencia
     const currentPath = window.location.pathname;
     const pathSegments = currentPath.split('/');
     
@@ -1030,12 +1122,9 @@ function handleLogoutError() {
     }
     
     const baseUrl = window.location.origin + pathSegments.join('/') + '/';
-    
-    // Redirección de emergencia
     window.location.href = baseUrl + 'auth/logout.php?action=emergency';
 }
 
-// Limpiar datos locales
 function clearLocalData() {
     try {
         const keysToRemove = [
@@ -1046,24 +1135,18 @@ function clearLocalData() {
         keysToRemove.forEach(key => {
             try {
                 localStorage.removeItem(key);
-            } catch (e) {
-                console.warn('Error removiendo', key, ':', e);
-            }
+            } catch (e) {}
         });
         
         try {
             sessionStorage.clear();
-        } catch (e) {
-            console.warn('Error limpiando sessionStorage:', e);
-        }
+        } catch (e) {}
         
-        console.log('Datos locales limpiados');
     } catch (error) {
         console.error('Error limpiando datos locales:', error);
     }
 }
 
-// Mostrar mensaje temporal
 function showTempMessage(message, type = 'info') {
     const messageEl = document.createElement('div');
     messageEl.style.cssText = `
@@ -1089,19 +1172,21 @@ function showTempMessage(message, type = 'info') {
     }, 3000);
 }
 
-// Event listeners cuando el DOM esté listo
+// Event listeners
 document.addEventListener('DOMContentLoaded', function() {
-    // Mobile menu toggle
-    const mobileMenuToggle = document.getElementById('mobileMenuToggle');
-    const sidebar = document.querySelector('.app-sidebar');
     
-    if (mobileMenuToggle && sidebar) {
-        mobileMenuToggle.addEventListener('click', function() {
-            this.classList.toggle('active');
-            sidebar.classList.toggle('mobile-open');
-            document.body.classList.toggle('mobile-menu-open');
+    // Cerrar menú móvil al hacer clic en enlaces
+    const sidebarLinks = document.querySelectorAll('.nav-link:not([data-submenu-toggle]), .nav-sublink');
+    sidebarLinks.forEach(link => {
+        link.addEventListener('click', function() {
+            if (window.innerWidth <= 1024) {
+                const sidebar = document.getElementById('appSidebar');
+                if (sidebar && sidebar.classList.contains('mobile-open')) {
+                    toggleMobileMenu();
+                }
+            }
         });
-    }
+    });
     
     // Toggle de dropdown de notificaciones
     const notificationTrigger = document.getElementById('notificationTrigger');
@@ -1111,7 +1196,6 @@ document.addEventListener('DOMContentLoaded', function() {
         notificationTrigger.addEventListener('click', function(e) {
             e.stopPropagation();
             notificationDropdown.classList.toggle('active');
-            // Cerrar user menu si está abierto
             document.querySelector('.user-dropdown')?.classList.remove('active');
         });
     }
@@ -1124,7 +1208,6 @@ document.addEventListener('DOMContentLoaded', function() {
         userTrigger.addEventListener('click', function(e) {
             e.stopPropagation();
             userDropdown.classList.toggle('active');
-            // Cerrar notification menu si está abierto
             document.querySelector('.notification-dropdown')?.classList.remove('active');
         });
     }
@@ -1137,10 +1220,17 @@ document.addEventListener('DOMContentLoaded', function() {
         document.querySelector('.notification-dropdown')?.classList.remove('active');
     });
     
-    // Cerrar modal con Escape
+    // Cerrar modal/menu con Escape
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
             closeLogoutModal();
+            
+            if (window.innerWidth <= 1024) {
+                const sidebar = document.getElementById('appSidebar');
+                if (sidebar && sidebar.classList.contains('mobile-open')) {
+                    toggleMobileMenu();
+                }
+            }
         }
     });
     
@@ -1152,20 +1242,25 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 5000);
     }
     
-    // Header scroll effect
-    let lastScrollY = window.scrollY;
-    const header = document.querySelector('.app-header');
-    
-    window.addEventListener('scroll', () => {
-        if (window.scrollY > 10) {
-            header?.classList.add('scrolled');
-        } else {
-            header?.classList.remove('scrolled');
+    // Manejar resize de ventana
+    window.addEventListener('resize', function() {
+        if (window.innerWidth > 1024) {
+            const sidebar = document.getElementById('appSidebar');
+            const body = document.body;
+            const mobileToggle = document.getElementById('mobileMenuToggle');
+            const overlay = document.getElementById('mobileOverlay');
+            
+            if (sidebar) sidebar.classList.remove('mobile-open');
+            if (body) {
+                body.classList.remove('mobile-menu-open');
+                body.style.overflow = '';
+            }
+            if (mobileToggle) mobileToggle.classList.remove('active');
+            if (overlay) overlay.classList.remove('active');
         }
-        lastScrollY = window.scrollY;
     });
     
-    console.log('Sistema de logout simplificado iniciado');
+    console.log('Header con sidebar mobile iniciado correctamente');
 });
 
 // Función de emergencia accesible globalmente
@@ -1186,15 +1281,4 @@ window.emergencyLogout = function() {
     window.location.href = baseUrl + 'auth/logout.php?action=emergency';
 };
 
-// Prevenir múltiples llamadas de logout
-const originalExecuteLogout = window.executeLogout;
-window.executeLogout = function() {
-    if (logoutInProgress) {
-        console.log('Logout ya en progreso');
-        return;
-    }
-    return originalExecuteLogout();
-};
-
-console.log('Sistema de logout cargado correctamente');
 </script>

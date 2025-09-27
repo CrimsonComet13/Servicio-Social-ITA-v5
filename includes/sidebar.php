@@ -147,7 +147,6 @@ function hasActiveSubmenu($submenu, $currentPath) {
     return false;
 }
 ?>
-<div class="mobile-overlay" id="mobileOverlay"></div>
 <aside class="sidebar" id="appSidebar">
     <!-- Sidebar Header -->
     <div class="sidebar-header">
@@ -299,7 +298,6 @@ function hasActiveSubmenu($submenu, $currentPath) {
     
     <!-- Sidebar Footer -->
     <div class="sidebar-footer">
-
         <div class="footer-info">
             <div class="app-version">
                 <span>ITA Social v<?= defined('APP_VERSION') ? APP_VERSION : '1.0.0' ?></span>
@@ -309,7 +307,11 @@ function hasActiveSubmenu($submenu, $currentPath) {
 </aside>
 
 <style>
-/* Sidebar Styles */
+/* ================================
+   SIDEBAR STYLES - ACTUALIZADO COMPLETO
+================================ */
+
+/* Sidebar principal - POSICIÓN FIJA CORRECTA */
 .sidebar {
     position: fixed;
     left: 0;
@@ -320,7 +322,7 @@ function hasActiveSubmenu($submenu, $currentPath) {
     border-right: 1px solid var(--border);
     overflow-y: auto;
     overflow-x: hidden;
-    z-index: 900;
+    z-index: 900;  /* Menos que header (1000) */
     transition: var(--transition);
     display: flex;
     flex-direction: column;
@@ -348,6 +350,7 @@ function hasActiveSubmenu($submenu, $currentPath) {
     padding: 2rem;
     border-bottom: 1px solid var(--border-light);
     background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(139, 140, 247, 0.05) 100%);
+    flex-shrink: 0;
 }
 
 .sidebar-user {
@@ -370,6 +373,7 @@ function hasActiveSubmenu($submenu, $currentPath) {
     font-size: 1.5rem;
     overflow: hidden;
     box-shadow: var(--shadow);
+    flex-shrink: 0;
 }
 
 .sidebar-user .user-avatar img {
@@ -479,6 +483,7 @@ function hasActiveSubmenu($submenu, $currentPath) {
 .sidebar-nav {
     flex: 1;
     padding: 1rem 0;
+    overflow-y: auto;
 }
 
 .nav-section {
@@ -567,6 +572,7 @@ function hasActiveSubmenu($submenu, $currentPath) {
     align-items: center;
     justify-content: center;
     font-size: 1rem;
+    flex-shrink: 0;
 }
 
 .nav-text {
@@ -587,6 +593,7 @@ function hasActiveSubmenu($submenu, $currentPath) {
     align-items: center;
     justify-content: center;
     line-height: 1;
+    flex-shrink: 0;
 }
 
 .nav-arrow {
@@ -594,6 +601,7 @@ function hasActiveSubmenu($submenu, $currentPath) {
     color: var(--text-light);
     transition: var(--transition);
     margin-left: 0.5rem;
+    flex-shrink: 0;
 }
 
 .nav-arrow.expanded {
@@ -675,11 +683,13 @@ function hasActiveSubmenu($submenu, $currentPath) {
     background: var(--bg-light);
     border-radius: var(--radius);
     transition: var(--transition);
+    cursor: pointer;
 }
 
 .stat-item:hover {
     background: var(--bg-white);
     box-shadow: var(--shadow-sm);
+    transform: translateY(-1px);
 }
 
 .stat-icon {
@@ -691,6 +701,7 @@ function hasActiveSubmenu($submenu, $currentPath) {
     justify-content: center;
     font-size: 0.9rem;
     color: white;
+    flex-shrink: 0;
 }
 
 .stat-icon.primary {
@@ -733,44 +744,7 @@ function hasActiveSubmenu($submenu, $currentPath) {
     padding: 1.5rem 2rem;
     border-top: 1px solid var(--border-light);
     background: var(--bg-light);
-}
-
-.footer-actions {
-    display: flex;
-    justify-content: center;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-}
-
-.footer-action {
-    width: 36px;
-    height: 36px;
-    border-radius: var(--radius);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-secondary);
-    text-decoration: none;
-    font-size: 0.9rem;
-    transition: var(--transition);
-    background: var(--bg-white);
-    border: 1px solid var(--border);
-}
-
-.footer-action:hover {
-    color: var(--primary);
-    border-color: var(--primary);
-    transform: translateY(-1px);
-}
-
-.footer-action.logout {
-    color: var(--error);
-}
-
-.footer-action.logout:hover {
-    color: var(--error);
-    border-color: var(--error);
-    background: rgba(239, 68, 68, 0.05);
+    flex-shrink: 0;
 }
 
 .footer-info {
@@ -782,20 +756,18 @@ function hasActiveSubmenu($submenu, $currentPath) {
     color: var(--text-light);
 }
 
-/* Mobile Styles */
+/* ⭐ RESPONSIVE MÓVIL - CRÍTICO PARA LA SOLUCIÓN */
 @media (max-width: 1024px) {
     .sidebar {
-        transform: translateX(-100%);
-        z-index: 1001;
+        transform: translateX(-100%);  /* Ocultar por defecto */
+        z-index: 1001;  /* Mayor que overlay (999) */
+        width: var(--sidebar-width);
+        box-shadow: none;
     }
     
     .sidebar.mobile-open {
-        transform: translateX(0);
+        transform: translateX(0);  /* Mostrar cuando está abierto */
         box-shadow: var(--shadow-lg);
-    }
-    
-    body.mobile-menu-open {
-        overflow: hidden;
     }
 }
 
@@ -821,9 +793,13 @@ function hasActiveSubmenu($submenu, $currentPath) {
     .sidebar-footer {
         padding: 1rem 1.5rem;
     }
+    
+    :root {
+        --sidebar-width: 280px;  /* Mantener ancho en móviles */
+    }
 }
 
-/* Animation for submenu expansion */
+/* Animación para submenú */
 @keyframes slideDown {
     from {
         opacity: 0;
@@ -850,6 +826,12 @@ function hasActiveSubmenu($submenu, $currentPath) {
 .nav-submenu.expanded .nav-subitem:nth-child(4) {
     animation-delay: 0.15s;
 }
+
+/* Estados especiales */
+.nav-item.has-active-child > .nav-link {
+    background: rgba(99, 102, 241, 0.05);
+    color: var(--primary);
+}
 </style>
 
 <script>
@@ -863,53 +845,49 @@ document.addEventListener('DOMContentLoaded', function() {
             
             const submenu = this.nextElementSibling;
             const arrow = this.querySelector('.nav-arrow');
-            const isExpanded = submenu.classList.contains('expanded');
+            const isExpanded = submenu && submenu.classList.contains('expanded');
             
             // Close other submenus
             document.querySelectorAll('.nav-submenu.expanded').forEach(menu => {
                 if (menu !== submenu) {
                     menu.classList.remove('expanded');
-                    menu.previousElementSibling.querySelector('.nav-arrow')?.classList.remove('expanded');
-                    menu.previousElementSibling.setAttribute('aria-expanded', 'false');
+                    const prevArrow = menu.previousElementSibling?.querySelector('.nav-arrow');
+                    if (prevArrow) prevArrow.classList.remove('expanded');
+                    menu.previousElementSibling?.setAttribute('aria-expanded', 'false');
                 }
             });
             
             // Toggle current submenu
-            if (!isExpanded) {
-                submenu.classList.add('expanded');
-                arrow?.classList.add('expanded');
-                this.setAttribute('aria-expanded', 'true');
-            } else {
-                submenu.classList.remove('expanded');
-                arrow?.classList.remove('expanded');
-                this.setAttribute('aria-expanded', 'false');
+            if (submenu) {
+                if (!isExpanded) {
+                    submenu.classList.add('expanded');
+                    arrow?.classList.add('expanded');
+                    this.setAttribute('aria-expanded', 'true');
+                } else {
+                    submenu.classList.remove('expanded');
+                    arrow?.classList.remove('expanded');
+                    this.setAttribute('aria-expanded', 'false');
+                }
             }
         });
     });
     
-    // Handle active states
-    const navLinks = document.querySelectorAll('.nav-link, .nav-sublink');
-    
-    navLinks.forEach(link => {
-        if (link.classList.contains('active')) {
-            // Expand parent submenu if sublink is active
-            if (link.classList.contains('nav-sublink')) {
-                const parentSubmenu = link.closest('.nav-submenu');
-                const parentToggle = parentSubmenu?.previousElementSibling;
-                
-                if (parentSubmenu && parentToggle) {
-                    parentSubmenu.classList.add('expanded');
-                    parentToggle.querySelector('.nav-arrow')?.classList.add('expanded');
-                    parentToggle.setAttribute('aria-expanded', 'true');
-                    parentToggle.parentElement.classList.add('has-active-child');
-                }
-            }
+    // Handle active states - expand parent submenu if sublink is active
+    const activeSublinks = document.querySelectorAll('.nav-sublink.active');
+    activeSublinks.forEach(sublink => {
+        const parentSubmenu = sublink.closest('.nav-submenu');
+        const parentToggle = parentSubmenu?.previousElementSibling;
+        
+        if (parentSubmenu && parentToggle) {
+            parentSubmenu.classList.add('expanded');
+            parentToggle.querySelector('.nav-arrow')?.classList.add('expanded');
+            parentToggle.setAttribute('aria-expanded', 'true');
+            parentToggle.parentElement?.classList.add('has-active-child');
         }
     });
     
-    // Handle stat item clicks
+    // Handle stat item interactions
     const statItems = document.querySelectorAll('.stat-item');
-    
     statItems.forEach(item => {
         item.addEventListener('click', function() {
             // Add click effect
@@ -918,54 +896,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 this.style.transform = '';
             }, 150);
         });
-    });
-    
-    // Handle sidebar collapse on mobile
-    const sidebarLinks = document.querySelectorAll('.nav-link:not([data-submenu-toggle]), .nav-sublink');
-    
-    sidebarLinks.forEach(link => {
-        link.addEventListener('click', function() {
-            if (window.innerWidth <= 1024) {
-                const sidebar = document.getElementById('appSidebar');
-                const overlay = document.getElementById('mobileOverlay');
-                const menuToggle = document.getElementById('mobileMenuToggle');
-                
-                if (sidebar) {
-                    sidebar.classList.remove('mobile-open');
-                    overlay?.classList.remove('active');
-                    menuToggle?.classList.remove('active');
-                    document.body.classList.remove('mobile-menu-open');
-                }
-            }
+        
+        // Add hover effect
+        item.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-2px)';
+        });
+        
+        item.addEventListener('mouseleave', function() {
+            this.style.transform = '';
         });
     });
     
-    // Smooth scrolling for sidebar navigation
-    function smoothScrollToSection(targetId) {
-        const target = document.getElementById(targetId);
-        if (target) {
-            target.scrollIntoView({
-                behavior: 'smooth',
-                block: 'start'
-            });
-        }
-    }
-    
-    // Add keyboard navigation
-    document.addEventListener('keydown', function(e) {
-        // ESC key to close mobile menu
-        if (e.key === 'Escape' && window.innerWidth <= 1024) {
-            const sidebar = document.getElementById('appSidebar');
-            const overlay = document.getElementById('mobileOverlay');
-            const menuToggle = document.getElementById('mobileMenuToggle');
-            
-            if (sidebar?.classList.contains('mobile-open')) {
-                sidebar.classList.remove('mobile-open');
-                overlay?.classList.remove('active');
-                menuToggle?.classList.remove('active');
-                document.body.classList.remove('mobile-menu-open');
-            }
-        }
-    });
+    console.log('Sidebar inicializado correctamente');
 });
 </script>
