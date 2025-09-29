@@ -8,7 +8,12 @@ $session->requireRole('jefe_departamento');
 
 $db = Database::getInstance();
 $usuario = $session->getUser();
-$jefeId = $usuario['id'];
+$jefeDepto = $db->fetch("SELECT id FROM jefes_departamento WHERE usuario_id = ?", [$usuario['id']]);
+if (!$jefeDepto) {
+    flashMessage('No se encontró el perfil de jefe de departamento', 'error');
+    redirectTo('/dashboard/jefe_departamento.php');
+}
+$jefeId = $jefeDepto['id'];
 
 // Procesar filtros de reportes
 $fechaInicio = $_GET['fecha_inicio'] ?? date('Y-m-d', strtotime('-1 month'));
@@ -123,7 +128,7 @@ include '../../includes/sidebar.php';
                     <i class="fas fa-chart-line"></i>
                     Reportes y Estadísticas
                 </h1>
-                <p class="page-subtitle">Análisis y generación de reportes del departamento <?= htmlspecialchars($usuario['departamento']) ?></p>
+                <p class="page-subtitle">Análisis y generación de reportes del departamento <?= htmlspecialchars($usuario['departamento'] ?? 'No especificado') ?></p>
             </div>
             <div class="header-actions">
                 <a href="../../dashboard/jefe_departamento.php" class="btn btn-secondary">

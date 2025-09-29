@@ -8,7 +8,23 @@ $session->requireRole('jefe_departamento');
 
 $db = Database::getInstance();
 $usuario = $session->getUser();
-$jefeId = $usuario['id'];
+
+// Validar que el usuario tiene los datos necesarios
+if (!$usuario || !isset($usuario['id'])) {
+    // Redirigir al login si no hay usuario válido
+    header('Location: ../../auth/login.php');
+    exit;
+}
+
+$jefeDepto = $db->fetch("SELECT id FROM jefes_departamento WHERE usuario_id = ?", [$usuario['id']]);
+if (!$jefeDepto) {
+    flashMessage('No se encontró el perfil de jefe de departamento', 'error');
+    redirectTo('/dashboard/jefe_departamento.php');
+}
+$jefeId = $jefeDepto['id'];
+
+// Asegurar que los campos del usuario existen con valores por defecto
+$departamentoUsuario = isset($usuario['departamento']) && !empty($usuario['departamento']) ? $usuario['departamento'] : 'Sin Departamento';
 
 // Procesar filtros
 $estado = $_GET['estado'] ?? 'todos';
@@ -45,7 +61,7 @@ $total = $db->fetch("
     SELECT COUNT(*) as total
     FROM solicitudes_servicio s
     WHERE $whereClause
-", $params)['total'];
+", $params)['total'] ?? 0;
 
 $totalPages = ceil($total / $limit);
 
@@ -61,6 +77,21 @@ $stats = $db->fetch("
     FROM solicitudes_servicio s
     WHERE s.jefe_departamento_id = :jefe_id
 ", ['jefe_id' => $jefeId]);
+
+// Verificar que las estadísticas se obtuvieron correctamente
+if (!$stats) {
+    $stats = [
+        'total' => 0,
+        'pendientes' => 0,
+        'aprobadas' => 0,
+        'rechazadas' => 0,
+        'en_proceso' => 0,
+        'recientes' => 0
+    ];
+}
+
+// Asegurar que las solicitudes no sean null
+$solicitudes = $solicitudes ?: [];
 
 $pageTitle = "Solicitudes de Servicio Social - " . APP_NAME;
 include '../../includes/header.php';
@@ -886,7 +917,7 @@ body {
 <div class="dashboard-container">
     <div class="dashboard-header">
         <h1>Solicitudes de Servicio Social</h1>
-        <p>Gestión y seguimiento de solicitudes del departamento <?= htmlspecialchars($usuario['departamento']) ?></p>
+        <p>Gestión y seguimiento de solicitudes del departamento <?= htmlspecialchars($departamentoUsuario) ?></p>
         <div class="quick-actions">
             <a href="../../modules/departamento/reportes.php" class="quick-action-btn">
                 <i class="fas fa-chart-bar"></i>
@@ -901,7 +932,7 @@ body {
             <div class="stat-header">
                 <div>
                     <div class="stat-title">Total Solicitudes</div>
-                    <div class="stat-number"><?= $stats['total'] ?></div>
+                    <div class="stat-number"><?= $stats['total'] ?? 0 ?></div>
                     <div class="stat-subtitle">Registradas en el sistema</div>
                 </div>
                 <div class="stat-icon">
@@ -914,7 +945,7 @@ body {
             <div class="stat-header">
                 <div>
                     <div class="stat-title">Pendientes</div>
-                    <div class="stat-number"><?= $stats['pendientes'] ?></div>
+                    <div class="stat-number"><?= $stats['pendientes'] ?? 0 ?></div>
                     <div class="stat-subtitle">Requieren revisión</div>
                 </div>
                 <div class="stat-icon warning">
@@ -927,7 +958,7 @@ body {
             <div class="stat-header">
                 <div>
                     <div class="stat-title">Aprobadas</div>
-                    <div class="stat-number"><?= $stats['aprobadas'] ?></div>
+                    <div class="stat-number"><?= $stats['aprobadas'] ?? 0 ?></div>
                     <div class="stat-subtitle">Listas para iniciar</div>
                 </div>
                 <div class="stat-icon success">
@@ -940,7 +971,7 @@ body {
             <div class="stat-header">
                 <div>
                     <div class="stat-title">Rechazadas</div>
-                    <div class="stat-number"><?= $stats['rechazadas'] ?></div>
+                    <div class="stat-number"><?= $stats['rechazadas'] ?? 0 ?></div>
                     <div class="stat-subtitle">No aprobadas</div>
                 </div>
                 <div class="stat-icon danger">
@@ -953,7 +984,7 @@ body {
             <div class="stat-header">
                 <div>
                     <div class="stat-title">En Proceso</div>
-                    <div class="stat-number"><?= $stats['en_proceso'] ?></div>
+                    <div class="stat-number"><?= $stats['en_proceso'] ?? 0 ?></div>
                     <div class="stat-subtitle">Servicio activo</div>
                 </div>
                 <div class="stat-icon info">
@@ -966,7 +997,7 @@ body {
             <div class="stat-header">
                 <div>
                     <div class="stat-title">Recientes</div>
-                    <div class="stat-number"><?= $stats['recientes'] ?></div>
+                    <div class="stat-number"><?= $stats['recientes'] ?? 0 ?></div>
                     <div class="stat-subtitle">Últimos 30 días</div>
                 </div>
                 <div class="stat-icon purple">
@@ -1009,7 +1040,7 @@ body {
         </div>
     </div>
 
-    <?php if ($solicitudes): ?>
+    <?php if (!empty($solicitudes)): ?>
         <div class="table-container">
             <div class="table-header">
                 <h2 class="table-title">Lista de Solicitudes</h2>
@@ -1041,25 +1072,25 @@ body {
                             <td>
                                 <div class="student-profile">
                                     <div class="student-avatar">
-                                        <?= strtoupper(substr($solicitud['estudiante_nombre'], 0, 1) . substr($solicitud['apellido_paterno'] ?? '', 0, 1)) ?>
+                                        <?= strtoupper(substr($solicitud['estudiante_nombre'] ?? 'U', 0, 1) . substr($solicitud['apellido_paterno'] ?? 'S', 0, 1)) ?>
                                     </div>
                                     <div class="student-info">
-                                        <h4><?= htmlspecialchars($solicitud['estudiante_nombre'] . ' ' . ($solicitud['apellido_paterno'] ?? '')) ?></h4>
-                                        <p><?= htmlspecialchars($solicitud['numero_control']) ?></p>
+                                        <h4><?= htmlspecialchars(($solicitud['estudiante_nombre'] ?? 'Sin nombre') . ' ' . ($solicitud['apellido_paterno'] ?? '')) ?></h4>
+                                        <p><?= htmlspecialchars($solicitud['numero_control'] ?? 'Sin número') ?></p>
                                     </div>
                                 </div>
                             </td>
-                            <td><?= htmlspecialchars($solicitud['numero_control']) ?></td>
-                            <td><?= htmlspecialchars($solicitud['carrera']) ?></td>
-                            <td><?= htmlspecialchars($solicitud['nombre_proyecto']) ?></td>
+                            <td><?= htmlspecialchars($solicitud['numero_control'] ?? 'Sin número') ?></td>
+                            <td><?= htmlspecialchars($solicitud['carrera'] ?? 'Sin carrera') ?></td>
+                            <td><?= htmlspecialchars($solicitud['nombre_proyecto'] ?? 'Sin proyecto') ?></td>
                             <td><?= htmlspecialchars($solicitud['laboratorio'] ?? 'N/A') ?></td>
                             <td>
                                 <div class="time-indicator">
-                                    <?= formatDate($solicitud['fecha_solicitud']) ?>
+                                    <?= formatDate($solicitud['fecha_solicitud'] ?? date('Y-m-d')) ?>
                                 </div>
                                 <div class="priority-indicator">
                                     <?php 
-                                    $daysDiff = (time() - strtotime($solicitud['fecha_solicitud'])) / (60 * 60 * 24);
+                                    $daysDiff = (time() - strtotime($solicitud['fecha_solicitud'] ?? date('Y-m-d'))) / (60 * 60 * 24);
                                     if ($daysDiff > 7): ?>
                                         <span class="priority-dot high"></span>
                                         <span class="priority-text">Urgente</span>
@@ -1073,8 +1104,8 @@ body {
                                 </div>
                             </td>
                             <td>
-                                <span class="badge estado-<?= $solicitud['estado'] ?>">
-                                    <?= getEstadoText($solicitud['estado']) ?>
+                                <span class="badge estado-<?= $solicitud['estado'] ?? 'pendiente' ?>">
+                                    <?= getEstadoText($solicitud['estado'] ?? 'pendiente') ?>
                                 </span>
                             </td>
                             <td>
@@ -1083,7 +1114,7 @@ body {
                                         <i class="fas fa-eye"></i> Ver
                                     </a>
                                     
-                                    <?php if ($solicitud['estado'] === 'pendiente'): ?>
+                                    <?php if (($solicitud['estado'] ?? '') === 'pendiente'): ?>
                                         <a href="/modules/departamento/aprobar-solicitud.php?id=<?= $solicitud['id'] ?>" class="btn btn-sm btn-success">
                                             <i class="fas fa-check"></i> Aprobar
                                         </a>

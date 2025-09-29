@@ -8,7 +8,24 @@ $session->requireRole('jefe_departamento');
 
 $db = Database::getInstance();
 $usuario = $session->getUser();
-$jefeId = $usuario['id'];
+
+// Validar que el usuario tiene los datos necesarios
+if (!$usuario || !isset($usuario['id'])) {
+    // Redirigir al login si no hay usuario válido
+    header('Location: ../auth/login.php');
+    exit;
+}
+
+$jefeDepto = $db->fetch("SELECT id FROM jefes_departamento WHERE usuario_id = ?", [$usuario['id']]);
+if (!$jefeDepto) {
+    flashMessage('No se encontró el perfil de jefe de departamento', 'error');
+    redirectTo('/dashboard/jefe_departamento.php');
+}
+$jefeId = $jefeDepto['id'];
+
+// Asegurar que los campos del usuario existen con valores por defecto
+$nombreUsuario = isset($usuario['nombre']) && !empty($usuario['nombre']) ? $usuario['nombre'] : 'Usuario';
+$departamentoUsuario = isset($usuario['departamento']) && !empty($usuario['departamento']) ? $usuario['departamento'] : 'Sin Departamento';
 
 // Obtener estadísticas del departamento - ACTUALIZADO CON PROYECTOS
 $stats = $db->fetch("
@@ -28,6 +45,20 @@ $stats = $db->fetch("
     LEFT JOIN proyectos_laboratorio p ON jd.id = p.jefe_departamento_id
     WHERE jd.id = :jefe_id
 ", ['jefe_id' => $jefeId]);
+
+// Verificar que las estadísticas se obtuvieron correctamente
+if (!$stats) {
+    $stats = [
+        'total_solicitudes' => 0,
+        'solicitudes_pendientes' => 0,
+        'total_estudiantes' => 0,
+        'total_laboratorios' => 0,
+        'servicios_activos' => 0,
+        'total_proyectos' => 0,
+        'proyectos_activos' => 0,
+        'horas_totales' => 0
+    ];
+}
 
 // Obtener solicitudes pendientes recientes
 $solicitudesPendientes = $db->fetchAll("
@@ -88,6 +119,12 @@ $proyectosRecientes = $db->fetchAll("
     LIMIT 3
 ", ['jefe_id' => $jefeId]);
 
+// Asegurar que las consultas no devuelvan null
+$solicitudesPendientes = $solicitudesPendientes ?: [];
+$estudiantesActivos = $estudiantesActivos ?: [];
+$actividadesRecientes = $actividadesRecientes ?: [];
+$proyectosRecientes = $proyectosRecientes ?: [];
+
 $pageTitle = "Dashboard Jefe de Departamento - " . APP_NAME;
 $dashboardJS = true;
 $chartsJS = true;
@@ -101,10 +138,10 @@ include '../includes/sidebar.php';
     <div class="dashboard-header">
         <div class="welcome-section">
             <h1 class="welcome-title">
-                <span class="welcome-text">¡Hola, <?= htmlspecialchars(explode(' ', $usuario['nombre'])[0]) ?>!</span>
+                <span class="welcome-text">¡Hola, <?= htmlspecialchars(explode(' ', $nombreUsuario)[0]) ?>!</span>
                 <span class="welcome-emoji">👨‍💼</span>
             </h1>
-            <p class="welcome-subtitle">Panel de control del departamento <?= htmlspecialchars($usuario['departamento']) ?></p>
+            <p class="welcome-subtitle">Panel de control del departamento <?= htmlspecialchars($departamentoUsuario) ?></p>
         </div>
         <div class="date-section">
             <div class="current-date">
@@ -235,29 +272,29 @@ include '../includes/sidebar.php';
                     </a>
                 </div>
 
-                <?php if ($solicitudesPendientes): ?>
+                <?php if (!empty($solicitudesPendientes)): ?>
                     <div class="requests-grid">
                         <?php foreach ($solicitudesPendientes as $solicitud): ?>
                         <div class="request-card">
                             <div class="request-header">
                                 <div class="student-avatar">
-                                    <?= strtoupper(substr($solicitud['estudiante_nombre'], 0, 1)) ?>
+                                    <?= strtoupper(substr($solicitud['estudiante_nombre'] ?? 'U', 0, 1)) ?>
                                 </div>
                                 <div class="student-info">
-                                    <h4><?= htmlspecialchars($solicitud['estudiante_nombre']) ?></h4>
-                                    <p><?= htmlspecialchars($solicitud['numero_control']) ?> - <?= htmlspecialchars($solicitud['carrera']) ?></p>
+                                    <h4><?= htmlspecialchars($solicitud['estudiante_nombre'] ?? 'Sin nombre') ?></h4>
+                                    <p><?= htmlspecialchars($solicitud['numero_control'] ?? 'Sin número') ?> - <?= htmlspecialchars($solicitud['carrera'] ?? 'Sin carrera') ?></p>
                                 </div>
                                 <div class="request-date">
                                     <i class="fas fa-calendar"></i>
-                                    <span><?= formatDate($solicitud['fecha_solicitud']) ?></span>
+                                    <span><?= formatDate($solicitud['fecha_solicitud'] ?? date('Y-m-d')) ?></span>
                                 </div>
                             </div>
                             
                             <div class="request-body">
                                 <div class="project-info">
                                     <h5>Proyecto Solicitado</h5>
-                                    <p><?= htmlspecialchars($solicitud['nombre_proyecto']) ?></p>
-                                    <?php if ($solicitud['jefe_lab_nombre']): ?>
+                                    <p><?= htmlspecialchars($solicitud['nombre_proyecto'] ?? 'Sin proyecto asignado') ?></p>
+                                    <?php if (!empty($solicitud['jefe_lab_nombre'])): ?>
                                     <small>Supervisor: <?= htmlspecialchars($solicitud['jefe_lab_nombre']) ?></small>
                                     <?php endif; ?>
                                 </div>
@@ -302,15 +339,15 @@ include '../includes/sidebar.php';
                     </a>
                 </div>
 
-                <?php if ($estudiantesActivos): ?>
+                <?php if (!empty($estudiantesActivos)): ?>
                     <div class="students-list">
                         <?php foreach ($estudiantesActivos as $estudiante): ?>
                         <div class="student-item">
                             <div class="student-avatar-large">
-                                <?= strtoupper(substr($estudiante['nombre'], 0, 1)) ?>
+                                <?= strtoupper(substr($estudiante['nombre'] ?? 'U', 0, 1)) ?>
                             </div>
                             <div class="student-details">
-                                <h4><?= htmlspecialchars($estudiante['nombre'] . ' ' . $estudiante['apellido_paterno']) ?></h4>
+                                <h4><?= htmlspecialchars(($estudiante['nombre'] ?? 'Sin nombre') . ' ' . ($estudiante['apellido_paterno'] ?? '')) ?></h4>
                                 <div class="student-meta">
                                     <span class="meta-item">
                                         <i class="fas fa-flask"></i>
@@ -318,14 +355,14 @@ include '../includes/sidebar.php';
                                     </span>
                                     <span class="meta-item">
                                         <i class="fas fa-project-diagram"></i>
-                                        <?= htmlspecialchars($estudiante['nombre_proyecto']) ?>
+                                        <?= htmlspecialchars($estudiante['nombre_proyecto'] ?? 'Sin proyecto') ?>
                                     </span>
                                 </div>
                                 <div class="student-progress">
                                     <span class="progress-label">Periodo:</span>
                                     <span class="progress-dates">
-                                        <?= formatDate($estudiante['fecha_inicio_propuesta']) ?> - 
-                                        <?= formatDate($estudiante['fecha_fin_propuesta']) ?>
+                                        <?= formatDate($estudiante['fecha_inicio_propuesta'] ?? date('Y-m-d')) ?> - 
+                                        <?= formatDate($estudiante['fecha_fin_propuesta'] ?? date('Y-m-d')) ?>
                                     </span>
                                 </div>
                             </div>
@@ -371,7 +408,7 @@ include '../includes/sidebar.php';
                     </a>
                 </div>
 
-                <?php if ($proyectosRecientes): ?>
+                <?php if (!empty($proyectosRecientes)): ?>
                     <div class="requests-grid">
                         <?php foreach ($proyectosRecientes as $proyecto): ?>
                         <div class="request-card project-card">
@@ -380,12 +417,12 @@ include '../includes/sidebar.php';
                                     <i class="fas fa-project-diagram"></i>
                                 </div>
                                 <div class="student-info">
-                                    <h4><?= htmlspecialchars($proyecto['nombre_proyecto']) ?></h4>
+                                    <h4><?= htmlspecialchars($proyecto['nombre_proyecto'] ?? 'Sin nombre') ?></h4>
                                     <p><?= htmlspecialchars($proyecto['laboratorio_asignado'] ?? 'Sin laboratorio asignado') ?></p>
                                 </div>
                                 <div class="request-date">
                                     <i class="fas fa-calendar"></i>
-                                    <span><?= formatDate($proyecto['created_at']) ?></span>
+                                    <span><?= formatDate($proyecto['created_at'] ?? date('Y-m-d')) ?></span>
                                 </div>
                             </div>
                             
@@ -393,7 +430,7 @@ include '../includes/sidebar.php';
                                 <div class="project-info">
                                     <h5>Descripción del Proyecto</h5>
                                     <p><?= htmlspecialchars(shortenText($proyecto['descripcion'] ?? 'Sin descripción', 100)) ?></p>
-                                    <?php if ($proyecto['jefe_lab_nombre']): ?>
+                                    <?php if (!empty($proyecto['jefe_lab_nombre'])): ?>
                                     <small>Jefe de Laboratorio: <?= htmlspecialchars($proyecto['jefe_lab_nombre']) ?></small>
                                     <?php endif; ?>
                                 </div>
@@ -402,11 +439,11 @@ include '../includes/sidebar.php';
                             <div class="project-stats-mini">
                                 <div class="stat-mini">
                                     <i class="fas fa-users"></i>
-                                    <span><?= $proyecto['estudiantes_activos'] ?> activos</span>
+                                    <span><?= $proyecto['estudiantes_activos'] ?? 0 ?> activos</span>
                                 </div>
                                 <div class="stat-mini">
                                     <i class="fas fa-paper-plane"></i>
-                                    <span><?= $proyecto['total_solicitudes'] ?> solicitudes</span>
+                                    <span><?= $proyecto['total_solicitudes'] ?? 0 ?> solicitudes</span>
                                 </div>
                                 <div class="stat-mini">
                                     <i class="fas fa-user-check"></i>
@@ -581,7 +618,7 @@ include '../includes/sidebar.php';
     </div>
 </div>
 
-
+<!-- Todo el CSS y JavaScript se mantiene igual -->
 <style>
 /* Variables CSS */
 :root {
@@ -1651,6 +1688,7 @@ include '../includes/sidebar.php';
         padding: 0.75rem;
     }
 }
+
 /* Variables sidebar */
 :root {
     --sidebar-width: 280px;

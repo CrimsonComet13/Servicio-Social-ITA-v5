@@ -8,7 +8,12 @@ $session->requireRole('jefe_departamento');
 
 $db = Database::getInstance();
 $usuario = $session->getUser();
-$jefeId = $usuario['id'];
+$jefeDepto = $db->fetch("SELECT id FROM jefes_departamento WHERE usuario_id = ?", [$usuario['id']]);
+if (!$jefeDepto) {
+    flashMessage('No se encontró el perfil de jefe de departamento', 'error');
+    redirectTo('/dashboard/jefe_departamento.php');
+}
+$jefeId = $jefeDepto['id'];
 
 // Procesar filtros
 $estado = $_GET['estado'] ?? 'todos';
@@ -61,6 +66,15 @@ $stats = $db->fetch("
     JOIN estudiantes e ON s.estudiante_id = e.id
     WHERE s.jefe_departamento_id = :jefe_id
 ", ['jefe_id' => $jefeId]);
+
+$departamentoInfo = $db->fetch("
+    SELECT departamento 
+    FROM jefes_departamento 
+    WHERE id = :jefe_id
+", ['jefe_id' => $jefeId]);
+
+$departamento = $departamentoInfo['departamento'] ?? 'No especificado';
+
 
 $pageTitle = "Estudiantes - " . APP_NAME;
 include '../../includes/header.php';
@@ -732,10 +746,10 @@ body {
 </style>
 <div class="main-wrapper">
     <div class="dashboard-content">
-    <div class="dashboard-header">
-        <h1>Estudiantes del Departamento</h1>
-        <p>Gestión de estudiantes del departamento <?= htmlspecialchars($usuario['departamento']) ?></p>
-    </div>
+ <div class="dashboard-header">
+    <h1>Estudiantes del Departamento</h1>
+    <p>Gestión de estudiantes del departamento <?= htmlspecialchars($departamento) ?></p>
+</div>
 
     <!-- Estadísticas -->
     <div class="stats-grid">

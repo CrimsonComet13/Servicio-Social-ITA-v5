@@ -8,7 +8,12 @@ $session->requireRole('jefe_departamento');
 
 $db = Database::getInstance();
 $usuario = $session->getUser();
-$jefeId = $usuario['id'];
+$jefeDepto = $db->fetch("SELECT id FROM jefes_departamento WHERE usuario_id = ?", [$usuario['id']]);
+if (!$jefeDepto) {
+    flashMessage('No se encontró el perfil de jefe de departamento', 'error');
+    redirectTo('/dashboard/jefe_departamento.php');
+}
+$jefeId = $jefeDepto['id'];
 
 $projectId = $_GET['id'] ?? null;
 if (!$projectId || !is_numeric($projectId)) {

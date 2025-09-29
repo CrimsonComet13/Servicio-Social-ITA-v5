@@ -8,7 +8,23 @@ $session->requireRole('jefe_departamento');
 
 $db = Database::getInstance();
 $usuario = $session->getUser();
-$jefeId = $usuario['id'];
+
+// Validar que el usuario tiene los datos necesarios
+if (!$usuario || !isset($usuario['id'])) {
+    // Redirigir al login si no hay usuario válido
+    header('Location: ../../auth/login.php');
+    exit;
+}
+
+$jefeDepto = $db->fetch("SELECT id FROM jefes_departamento WHERE usuario_id = ?", [$usuario['id']]);
+if (!$jefeDepto) {
+    flashMessage('No se encontró el perfil de jefe de departamento', 'error');
+    redirectTo('/dashboard/jefe_departamento.php');
+}
+$jefeId = $jefeDepto['id'];
+
+// Asegurar que los campos del usuario existen con valores por defecto
+$departamentoUsuario = isset($usuario['departamento']) && !empty($usuario['departamento']) ? $usuario['departamento'] : 'Sin Departamento';
 
 // Procesar filtros
 $estado = $_GET['estado'] ?? 'todos';
@@ -65,9 +81,22 @@ $total = $db->fetch("
     SELECT COUNT(*) as total
     FROM proyectos_laboratorio p
     WHERE $whereClause
-", $params)['total'];
+", $params)['total'] ?? 0;
 
 $totalPages = ceil($total / $limit);
+
+// Verificar que las consultas devolvieron resultados válidos
+if (!$stats) {
+    $stats = [
+        'total_proyectos' => 0,
+        'proyectos_activos' => 0,
+        'activos_count' => 0,
+        'total_estudiantes_activos' => 0
+    ];
+}
+
+// Asegurar que los proyectos no sean null
+$proyectos = $proyectos ?: [];
 
 $pageTitle = "Gestión de Proyectos - " . APP_NAME;
 include '../../includes/header.php';
@@ -82,7 +111,7 @@ include '../../includes/sidebar.php';
                 <span class="welcome-text">Gestión de Proyectos</span>
                 <span class="welcome-emoji">📋</span>
             </h1>
-            <p class="welcome-subtitle">Administra los proyectos de servicio social del departamento <?= htmlspecialchars($usuario['departamento']) ?></p>
+            <p class="welcome-subtitle">Administra los proyectos de servicio social del departamento <?= htmlspecialchars($departamentoUsuario) ?></p>
         </div>
         <div class="header-actions">
             <a href="proyecto-crear.php" class="btn btn-primary btn-lg">
@@ -130,7 +159,7 @@ include '../../includes/sidebar.php';
             </div>
             <div class="stat-content">
                 <h3 class="stat-title">Estudiantes Activos</h3>
-                <div class="stat-number"><?= array_sum(array_column($proyectos, 'estudiantes_activos')) ?></div>
+                <div class="stat-number"><?= !empty($proyectos) ? array_sum(array_column($proyectos, 'estudiantes_activos')) : 0 ?></div>
                 <p class="stat-description">Participando</p>
                 <div class="stat-trend">
                     <i class="fas fa-users"></i>
@@ -145,7 +174,7 @@ include '../../includes/sidebar.php';
             </div>
             <div class="stat-content">
                 <h3 class="stat-title">Solicitudes Totales</h3>
-                <div class="stat-number"><?= array_sum(array_column($proyectos, 'solicitudes_recibidas')) ?></div>
+                <div class="stat-number"><?= !empty($proyectos) ? array_sum(array_column($proyectos, 'solicitudes_recibidas')) : 0 ?></div>
                 <p class="stat-description">Recibidas</p>
                 <div class="stat-trend">
                     <i class="fas fa-inbox"></i>
@@ -183,31 +212,31 @@ include '../../includes/sidebar.php';
     </div>
 
     <!-- Proyectos Grid -->
-    <?php if ($proyectos): ?>
+    <?php if (!empty($proyectos)): ?>
         <div class="projects-container">
             <div class="projects-grid">
                 <?php foreach ($proyectos as $index => $proyecto): ?>
                 <div class="project-card" data-project-id="<?= $proyecto['id'] ?>">
                     <div class="project-header">
                         <div class="project-title-section">
-                            <h3 class="project-title"><?= htmlspecialchars($proyecto['nombre_proyecto']) ?></h3>
+                            <h3 class="project-title"><?= htmlspecialchars($proyecto['nombre_proyecto'] ?? 'Sin nombre') ?></h3>
                             <div class="project-meta">
                                 <span class="meta-date">
                                     <i class="fas fa-calendar-alt"></i>
-                                    <?= formatDate($proyecto['created_at']) ?>
+                                    <?= formatDate($proyecto['created_at'] ?? date('Y-m-d')) ?>
                                 </span>
                             </div>
                         </div>
                         <div class="project-status">
-                            <span class="status-badge <?= $proyecto['activo'] ? 'active' : 'inactive' ?>">
-                                <i class="fas fa-<?= $proyecto['activo'] ? 'check-circle' : 'pause-circle' ?>"></i>
-                                <?= $proyecto['activo'] ? 'Activo' : 'Inactivo' ?>
+                            <span class="status-badge <?= ($proyecto['activo'] ?? 0) ? 'active' : 'inactive' ?>">
+                                <i class="fas fa-<?= ($proyecto['activo'] ?? 0) ? 'check-circle' : 'pause-circle' ?>"></i>
+                                <?= ($proyecto['activo'] ?? 0) ? 'Activo' : 'Inactivo' ?>
                             </span>
                         </div>
                     </div>
                     
                     <div class="project-body">
-                        <p class="project-description"><?= htmlspecialchars(shortenText($proyecto['descripcion'], 140)) ?></p>
+                        <p class="project-description"><?= htmlspecialchars(shortenText($proyecto['descripcion'] ?? 'Sin descripción', 140)) ?></p>
                         
                         <div class="project-details">
                             <div class="detail-row">
@@ -221,7 +250,7 @@ include '../../includes/sidebar.php';
                                     </div>
                                 </div>
                                 
-                                <?php if ($proyecto['jefe_lab_nombre']): ?>
+                                <?php if (!empty($proyecto['jefe_lab_nombre'])): ?>
                                 <div class="detail-item">
                                     <div class="detail-icon supervisor">
                                         <i class="fas fa-user-tie"></i>
@@ -241,7 +270,7 @@ include '../../includes/sidebar.php';
                                     </div>
                                     <div class="detail-content">
                                         <span class="detail-label">Horas</span>
-                                        <span class="detail-value"><?= $proyecto['horas_requeridas'] ?> hrs</span>
+                                        <span class="detail-value"><?= $proyecto['horas_requeridas'] ?? 0 ?> hrs</span>
                                     </div>
                                 </div>
                                 
@@ -252,8 +281,8 @@ include '../../includes/sidebar.php';
                                     <div class="detail-content">
                                         <span class="detail-label">Cupo</span>
                                         <span class="detail-value">
-                                            <?= $proyecto['cupo_ocupado'] ?>/<?= $proyecto['cupo_disponible'] ?>
-                                            <small>(<?= round(($proyecto['cupo_ocupado'] / max(1, $proyecto['cupo_disponible'])) * 100) ?>%)</small>
+                                            <?= $proyecto['cupo_ocupado'] ?? 0 ?>/<?= $proyecto['cupo_disponible'] ?? 0 ?>
+                                            <small>(<?= round((($proyecto['cupo_ocupado'] ?? 0) / max(1, $proyecto['cupo_disponible'] ?? 1)) * 100) ?>%)</small>
                                         </span>
                                     </div>
                                 </div>
@@ -267,7 +296,7 @@ include '../../includes/sidebar.php';
                                 <i class="fas fa-paper-plane"></i>
                             </div>
                             <div class="stat-data">
-                                <span class="stat-number"><?= $proyecto['solicitudes_recibidas'] ?></span>
+                                <span class="stat-number"><?= $proyecto['solicitudes_recibidas'] ?? 0 ?></span>
                                 <span class="stat-label">Solicitudes</span>
                             </div>
                         </div>
@@ -277,14 +306,14 @@ include '../../includes/sidebar.php';
                                 <i class="fas fa-user-check"></i>
                             </div>
                             <div class="stat-data">
-                                <span class="stat-number"><?= $proyecto['estudiantes_activos'] ?></span>
+                                <span class="stat-number"><?= $proyecto['estudiantes_activos'] ?? 0 ?></span>
                                 <span class="stat-label">Activos</span>
                             </div>
                         </div>
                         
                         <div class="stat-item progreso">
-                            <div class="progress-circle" data-percent="<?= round(($proyecto['cupo_ocupado'] / max(1, $proyecto['cupo_disponible'])) * 100) ?>">
-                                <span><?= round(($proyecto['cupo_ocupado'] / max(1, $proyecto['cupo_disponible'])) * 100) ?>%</span>
+                            <div class="progress-circle" data-percent="<?= round((($proyecto['cupo_ocupado'] ?? 0) / max(1, $proyecto['cupo_disponible'] ?? 1)) * 100) ?>">
+                                <span><?= round((($proyecto['cupo_ocupado'] ?? 0) / max(1, $proyecto['cupo_disponible'] ?? 1)) * 100) ?>%</span>
                             </div>
                         </div>
                     </div>
@@ -301,7 +330,7 @@ include '../../includes/sidebar.php';
                                 <i class="fas fa-edit"></i>
                             </a>
                             
-                            <?php if ($proyecto['activo']): ?>
+                            <?php if (($proyecto['activo'] ?? 0)): ?>
                                 <button class="btn btn-secondary btn-sm" 
                                         onclick="toggleProjectStatus(<?= $proyecto['id'] ?>, 'desactivar')"
                                         title="Desactivar proyecto">
