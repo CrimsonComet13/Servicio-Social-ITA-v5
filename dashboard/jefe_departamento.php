@@ -16,7 +16,7 @@ if (!$usuario || !isset($usuario['id'])) {
     exit;
 }
 
-$jefeDepto = $db->fetch("SELECT id FROM jefes_departamento WHERE usuario_id = ?", [$usuario['id']]);
+$jefeDepto = $db->fetch("SELECT id, nombre, departamento FROM jefes_departamento WHERE usuario_id = ?", [$usuario['id']]);
 if (!$jefeDepto) {
     flashMessage('No se encontró el perfil de jefe de departamento', 'error');
     redirectTo('/dashboard/jefe_departamento.php');
@@ -24,8 +24,8 @@ if (!$jefeDepto) {
 $jefeId = $jefeDepto['id'];
 
 // Asegurar que los campos del usuario existen con valores por defecto
-$nombreUsuario = isset($usuario['nombre']) && !empty($usuario['nombre']) ? $usuario['nombre'] : 'Usuario';
-$departamentoUsuario = isset($usuario['departamento']) && !empty($usuario['departamento']) ? $usuario['departamento'] : 'Sin Departamento';
+$nombreUsuario = !empty($jefeDepto['nombre']) ? $jefeDepto['nombre'] : 'Usuario';
+$departamentoUsuario = !empty($jefeDepto['departamento']) ? $jefeDepto['departamento'] : 'Sin Departamento';
 
 // Obtener estadísticas del departamento - ACTUALIZADO CON PROYECTOS
 $stats = $db->fetch("
