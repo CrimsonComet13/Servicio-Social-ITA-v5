@@ -47,17 +47,18 @@ $estadisticas = $db->fetch("
         COUNT(CASE WHEN s.estado = 'en_proceso' THEN 1 END) as estudiantes_activos,
         COUNT(CASE WHEN s.estado = 'concluida' THEN 1 END) as servicios_concluidos,
         COUNT(CASE WHEN s.estado = 'rechazada' THEN 1 END) as solicitudes_rechazadas,
-        AVG(CASE WHEN s.estado = 'en_proceso' THEN s.horas_completadas END) as promedio_horas,
-        SUM(CASE WHEN s.estado = 'concluida' THEN s.horas_completadas ELSE 0 END) as total_horas_completadas
+        AVG(CASE WHEN s.estado = 'en_proceso' THEN e.horas_completadas END) as promedio_horas,
+        SUM(CASE WHEN s.estado = 'concluida' THEN e.horas_completadas ELSE 0 END) as total_horas_completadas
     FROM solicitudes_servicio s
+    LEFT JOIN estudiantes e ON s.estudiante_id = e.id
     WHERE s.proyecto_id = :proyecto_id
 ", ['proyecto_id' => $projectId]);
 
 // Obtener estudiantes del proyecto
 $estudiantes = $db->fetchAll("
     SELECT s.*, e.nombre, e.apellido_paterno, e.apellido_materno, e.numero_control, 
-           e.carrera, e.telefono, s.fecha_solicitud, s.fecha_inicio_propuesta, 
-           s.fecha_fin_propuesta, s.horas_completadas,
+           e.carrera, e.telefono, e.horas_completadas, s.fecha_solicitud, s.fecha_inicio_propuesta, 
+           s.fecha_fin_propuesta,
            (SELECT COUNT(*) FROM reportes_bimestrales rb WHERE rb.solicitud_id = s.id) as reportes_entregados
     FROM solicitudes_servicio s
     JOIN estudiantes e ON s.estudiante_id = e.id
