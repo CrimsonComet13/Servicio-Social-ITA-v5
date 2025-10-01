@@ -75,10 +75,20 @@ $estudiantes = $db->fetchAll("
 ", ['proyecto_id' => $projectId]);
 
 // Obtener historial reciente del proyecto
+
 $historial = $db->fetchAll("
-    SELECT la.*, u.nombre as usuario_nombre
+    SELECT la.*, u.email, u.tipo_usuario,
+           CASE 
+               WHEN u.tipo_usuario = 'estudiante' THEN CONCAT(e.nombre, ' ', e.apellido_paterno)
+               WHEN u.tipo_usuario = 'jefe_departamento' THEN jd.nombre
+               WHEN u.tipo_usuario = 'jefe_laboratorio' THEN jl.nombre
+               ELSE u.email
+           END as usuario_nombre
     FROM log_actividades la
     JOIN usuarios u ON la.usuario_id = u.id
+    LEFT JOIN estudiantes e ON u.id = e.usuario_id AND u.tipo_usuario = 'estudiante'
+    LEFT JOIN jefes_departamento jd ON u.id = jd.usuario_id AND u.tipo_usuario = 'jefe_departamento'
+    LEFT JOIN jefes_laboratorio jl ON u.id = jl.usuario_id AND u.tipo_usuario = 'jefe_laboratorio'
     WHERE la.modulo = 'proyectos' AND la.registro_afectado_id = :proyecto_id
     ORDER BY la.created_at DESC
     LIMIT 10
