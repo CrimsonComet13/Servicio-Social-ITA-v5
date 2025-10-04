@@ -24,7 +24,8 @@ if (!$solicitudId || !is_numeric($solicitudId)) {
 
 // Obtener datos de la solicitud
 $solicitud = $db->fetch("
-    SELECT s.*, e.nombre as estudiante_nombre, e.apellido_paterno, p.nombre_proyecto
+    SELECT s.*, e.nombre as estudiante_nombre, e.apellido_paterno, 
+           p.nombre_proyecto, e.usuario_id as estudiante_usuario_id
     FROM solicitudes_servicio s
     JOIN estudiantes e ON s.estudiante_id = e.id
     JOIN proyectos_laboratorio p ON s.proyecto_id = p.id
@@ -64,17 +65,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ], 'id = :id', ['id' => $solicitud['estudiante_id']]);
             
             // Registrar en historial
-            insertHistorialEstado($solicitudId, 'pendiente', 'rechazada', $usuario['id'], 
-                                'Solicitud rechazada: ' . $motivo_rechazo . ($observaciones ? '. Observaciones: ' . $observaciones : ''));
+            $db->insert('historial_estados', [
+                'solicitud_id' => $solicitudId,
+                'estado_anterior' => 'pendiente',
+                'estado_nuevo' => 'rechazada',
+                'usuario_id' => $usuario['id'],
+                'comentarios' => 'Solicitud rechazada: ' . $motivo_rechazo . ($observaciones ? '. Observaciones: ' . $observaciones : ''),
+                'fecha_cambio' => date('Y-m-d H:i:s')
+            ]);
             
             // Notificar al estudiante
-            createNotification(
-                $solicitud['estudiante_id'],
-                'Solicitud Rechazada',
-                'Tu solicitud de servicio social ha sido rechazada. Revisa los comentarios y considera hacer una nueva solicitud.',
-                'error',
-                '/modules/estudiantes/solicitud-estado.php'
-            );
+            $db->insert('notificaciones', [
+                'usuario_id' => $solicitud['estudiante_usuario_id'],
+                'titulo' => 'Solicitud Rechazada',
+                'mensaje' => 'Tu solicitud de servicio social ha sido rechazada. Revisa los comentarios y considera hacer una nueva solicitud.',
+                'tipo' => 'error',
+                'url_accion' => '/modules/estudiantes/solicitud-estado.php'
+            ]);
             
             // Log de actividad
             logActivity($usuario['id'], 'rechazar_solicitud', 'solicitudes', $solicitudId, [
@@ -86,33 +93,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $db->commit();
             
             flashMessage('Solicitud rechazada exitosamente', 'success');
-            redirectTo('/modules/departamento/solicitud-detalle.php?id=' . $solicitudId);
+            redirectTo('/modules/departamento/solicitudes.php');
             
         } catch (Exception $e) {
             $db->rollback();
+            error_log("Error al rechazar solicitud: " . $e->getMessage());
             flashMessage('Error al rechazar la solicitud: ' . $e->getMessage(), 'error');
-            redirectTo('/modules/departamento/solicitud-detalle.php?id=' . $solicitudId);
+            redirectTo('/modules/departamento/solicitudes.php');
         }
     }
-}
-
-// Funciones helper
-function insertHistorialEstado($solicitudId, $estadoAnterior, $estadoNuevo, $usuarioId, $observaciones = null) {
-    global $db;
-    $db->insert('historial_estados', [
-        'solicitud_id' => $solicitudId,
-        'estado_anterior' => $estadoAnterior,
-        'estado_nuevo' => $estadoNuevo,
-        'usuario_id' => $usuarioId,
-        'observaciones' => $observaciones,
-        'fecha_cambio' => date('Y-m-d H:i:s')
-    ]);
 }
 
 $pageTitle = "Rechazar Solicitud - " . APP_NAME;
 include '../../includes/header.php';
 include '../../includes/sidebar.php';
 ?>
+
+<!-- El resto del HTML sigue igual -->
 
 <div class="main-wrapper">
     <div class="dashboard-container">

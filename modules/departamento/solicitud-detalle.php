@@ -3,6 +3,8 @@ require_once '../../config/config.php';
 require_once '../../config/session.php';
 require_once '../../config/functions.php';
 
+ob_start();
+
 $session = SecureSession::getInstance();
 $session->requireRole('jefe_departamento');
 
@@ -32,7 +34,7 @@ $solicitud = $db->fetch("
            e.nombre as estudiante_nombre, e.apellido_paterno, e.apellido_materno, 
            e.numero_control, e.carrera, e.semestre, e.creditos_cursados, 
            e.telefono as estudiante_telefono, e.horas_completadas,
-           u_est.email as estudiante_email,
+           u_est.email as estudiante_email, u_est.id as estudiante_usuario_id,
            p.nombre_proyecto, p.descripcion as proyecto_descripcion, 
            p.objetivos, p.tipo_actividades, p.horas_requeridas, p.requisitos,
            jl.nombre as jefe_lab_nombre, jl.laboratorio, jl.telefono as lab_telefono, 
@@ -75,11 +77,8 @@ $historialEstados = $db->fetchAll("
 // Procesar acciones de aprobación/rechazo
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $accion = $_POST['accion'] ?? '';
-    $observaciones_jefe = trim($_POST['observaciones'] ?? ''); // CORREGIDO: usar nombre consistente
+    $observaciones = trim($_POST['observaciones'] ?? '');
     $motivo_rechazo = trim($_POST['motivo_rechazo'] ?? '');
-    
-    // Debug temporal - remover en producción
-    error_log("Procesando solicitud: ID=$solicitudId, Accion=$accion, Estado actual=" . $solicitud['estado']);
     
     if (in_array($accion, ['aprobar', 'rechazar']) && $solicitud['estado'] === 'pendiente') {
         try {
@@ -89,7 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Aprobar solicitud
                 $updateResult = $db->update('solicitudes_servicio', [
                     'estado' => 'aprobada',
-                    'observaciones_jefe' => $observaciones_jefe, // CORREGIDO: usar variable correcta
+                    'observaciones_jefe' => $observaciones,
                     'aprobada_por' => $usuario['id'],
                     'fecha_aprobacion' => date('Y-m-d H:i:s')
                 ], 'id = :id', ['id' => $solicitudId]);
@@ -100,7 +99,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 // Actualizar estado del estudiante
                 $db->update('estudiantes', [
-                    'estado_servicio' => 'aprobado'
+                    'estado_servicio' => 'aprobado',
+                    'fecha_inicio_servicio' => $solicitud['fecha_inicio_propuesta']
                 ], 'id = :id', ['id' => $solicitud['estudiante_id']]);
                 
                 // Incrementar cupo ocupado del proyecto
@@ -121,29 +121,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ]);
                 
                 // Registrar en historial
-                insertHistorialEstado($solicitudId, 'pendiente', 'aprobada', $usuario['id'], 'Solicitud aprobada por jefe de departamento');
+                $db->insert('historial_estados', [
+                    'solicitud_id' => $solicitudId,
+                    'estado_anterior' => 'pendiente',
+                    'estado_nuevo' => 'aprobada',
+                    'usuario_id' => $usuario['id'],
+                    'comentarios' => 'Solicitud aprobada por jefe de departamento' . ($observaciones ? '. Observaciones: ' . $observaciones : ''),
+                    'fecha_cambio' => date('Y-m-d H:i:s')
+                ]);
                 
                 // Notificar al estudiante
-                createNotification(
-                    $solicitud['estudiante_id'],
-                    'Solicitud Aprobada',
-                    'Tu solicitud de servicio social ha sido aprobada. Ya puedes descargar tu oficio de presentación.',
-                    'success',
-                    '/modules/estudiantes/documentos.php'
-                );
+                if ($solicitud['estudiante_usuario_id']) {
+                    $db->insert('notificaciones', [
+                        'usuario_id' => $solicitud['estudiante_usuario_id'],
+                        'titulo' => 'Solicitud Aprobada',
+                        'mensaje' => 'Tu solicitud de servicio social ha sido aprobada. Ya puedes descargar tu oficio de presentación.',
+                        'tipo' => 'success',
+                        'url_accion' => '/modules/estudiantes/documentos.php'
+                    ]);
+                }
                 
                 // Notificar al jefe de laboratorio si existe
                 if ($solicitud['jefe_laboratorio_id']) {
-                    createNotification(
-                        $solicitud['jefe_laboratorio_id'],
-                        'Nuevo Estudiante Asignado',
-                        "El estudiante {$solicitud['estudiante_nombre']} {$solicitud['apellido_paterno']} iniciará servicio social en tu laboratorio.",
-                        'info',
-                        "/modules/laboratorio/estudiante-detalle.php?id={$solicitud['estudiante_id']}"
-                    );
+                    $jefeLabUsuario = $db->fetch("SELECT usuario_id FROM jefes_laboratorio WHERE id = ?", [$solicitud['jefe_laboratorio_id']]);
+                    if ($jefeLabUsuario) {
+                        $db->insert('notificaciones', [
+                            'usuario_id' => $jefeLabUsuario['usuario_id'],
+                            'titulo' => 'Nuevo Estudiante Asignado',
+                            'mensaje' => "El estudiante {$solicitud['estudiante_nombre']} {$solicitud['apellido_paterno']} iniciará servicio social en tu laboratorio.",
+                            'tipo' => 'info',
+                            'url_accion' => "/modules/laboratorio/estudiante-detalle.php?id={$solicitud['estudiante_id']}"
+                        ]);
+                    }
                 }
                 
-                $success = 'Solicitud aprobada exitosamente';
+                $successMessage = 'Solicitud aprobada exitosamente';
                 
             } else { // rechazar
                 if (empty($motivo_rechazo)) {
@@ -154,7 +166,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $updateResult = $db->update('solicitudes_servicio', [
                     'estado' => 'rechazada',
                     'motivo_rechazo' => $motivo_rechazo,
-                    'observaciones_jefe' => $observaciones_jefe // CORREGIDO: usar variable correcta
+                    'observaciones_jefe' => $observaciones
                 ], 'id = :id', ['id' => $solicitudId]);
                 
                 if (!$updateResult) {
@@ -167,18 +179,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ], 'id = :id', ['id' => $solicitud['estudiante_id']]);
                 
                 // Registrar en historial
-                insertHistorialEstado($solicitudId, 'pendiente', 'rechazada', $usuario['id'], 'Solicitud rechazada: ' . $motivo_rechazo);
+                $db->insert('historial_estados', [
+                    'solicitud_id' => $solicitudId,
+                    'estado_anterior' => 'pendiente',
+                    'estado_nuevo' => 'rechazada',
+                    'usuario_id' => $usuario['id'],
+                    'comentarios' => 'Solicitud rechazada: ' . $motivo_rechazo . ($observaciones ? '. Observaciones: ' . $observaciones : ''),
+                    'fecha_cambio' => date('Y-m-d H:i:s')
+                ]);
                 
                 // Notificar al estudiante
-                createNotification(
-                    $solicitud['estudiante_id'],
-                    'Solicitud Rechazada',
-                    'Tu solicitud de servicio social ha sido rechazada. Revisa los comentarios y considera hacer una nueva solicitud.',
-                    'error',
-                    '/modules/estudiantes/solicitud-estado.php'
-                );
+                if ($solicitud['estudiante_usuario_id']) {
+                    $db->insert('notificaciones', [
+                        'usuario_id' => $solicitud['estudiante_usuario_id'],
+                        'titulo' => 'Solicitud Rechazada',
+                        'mensaje' => 'Tu solicitud de servicio social ha sido rechazada. Revisa los comentarios y considera hacer una nueva solicitud.',
+                        'tipo' => 'error',
+                        'url_accion' => '/modules/estudiantes/solicitud-estado.php'
+                    ]);
+                }
                 
-                $success = 'Solicitud rechazada exitosamente';
+                $successMessage = 'Solicitud rechazada exitosamente';
             }
             
             // Log de actividad
@@ -189,46 +210,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             $db->commit();
             
-            // Recargar datos de la solicitud después de la actualización
-            $solicitud = $db->fetch("
-                SELECT s.*, 
-                       e.nombre as estudiante_nombre, e.apellido_paterno, e.apellido_materno, 
-                       e.numero_control, e.carrera, e.semestre, e.creditos_cursados, 
-                       e.telefono as estudiante_telefono, e.horas_completadas,
-                       u_est.email as estudiante_email,
-                       p.nombre_proyecto, p.descripcion as proyecto_descripcion, 
-                       p.objetivos, p.tipo_actividades, p.horas_requeridas, p.requisitos,
-                       jl.nombre as jefe_lab_nombre, jl.laboratorio, jl.telefono as lab_telefono, 
-                       jl.extension as lab_extension,
-                       u_lab.email as lab_email,
-                       jd.nombre as jefe_depto_nombre, jd.departamento
-                FROM solicitudes_servicio s
-                JOIN estudiantes e ON s.estudiante_id = e.id
-                JOIN usuarios u_est ON e.usuario_id = u_est.id
-                JOIN proyectos_laboratorio p ON s.proyecto_id = p.id
-                LEFT JOIN jefes_laboratorio jl ON s.jefe_laboratorio_id = jl.id
-                LEFT JOIN usuarios u_lab ON jl.usuario_id = u_lab.id
-                JOIN jefes_departamento jd ON s.jefe_departamento_id = jd.id
-                WHERE s.id = :solicitud_id AND s.jefe_departamento_id = :jefe_id
-            ", ['solicitud_id' => $solicitudId, 'jefe_id' => $jefeId]);
+            // Guardar mensaje en sesión
+            $_SESSION['flash_message'] = $successMessage;
+            $_SESSION['flash_type'] = 'success';
             
-            // Recargar historial
-            $historialEstados = $db->fetchAll("
-                SELECT he.*, u.email as usuario_email, 
-                       CASE 
-                           WHEN u.tipo_usuario = 'estudiante' THEN e.nombre
-                           WHEN u.tipo_usuario = 'jefe_departamento' THEN jd.nombre  
-                           WHEN u.tipo_usuario = 'jefe_laboratorio' THEN jl.nombre
-                           ELSE u.email
-                       END as usuario_nombre
-                FROM historial_estados he
-                LEFT JOIN usuarios u ON he.usuario_id = u.id
-                LEFT JOIN estudiantes e ON u.id = e.usuario_id AND u.tipo_usuario = 'estudiante'
-                LEFT JOIN jefes_departamento jd ON u.id = jd.usuario_id AND u.tipo_usuario = 'jefe_departamento'
-                LEFT JOIN jefes_laboratorio jl ON u.id = jl.usuario_id AND u.tipo_usuario = 'jefe_laboratorio'
-                WHERE he.solicitud_id = :solicitud_id
-                ORDER BY he.fecha_cambio DESC
-            ", ['solicitud_id' => $solicitudId]);
+            // Redirigir usando header directamente
+            header('Location: /servicio_social_ita/modules/departamento/solicitudes.php');
+            exit();
             
         } catch (Exception $e) {
             $db->rollback();
@@ -238,19 +226,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $error = 'Acción no válida o solicitud no se encuentra en estado pendiente';
     }
-}
-
-// Funciones helper
-function insertHistorialEstado($solicitudId, $estadoAnterior, $estadoNuevo, $usuarioId, $observaciones = null) {
-    global $db;
-    $db->insert('historial_estados', [
-        'solicitud_id' => $solicitudId,
-        'estado_anterior' => $estadoAnterior,
-        'estado_nuevo' => $estadoNuevo,
-        'usuario_id' => $usuarioId,
-        'observaciones' => $observaciones,
-        'fecha_cambio' => date('Y-m-d H:i:s')
-    ]);
 }
 
 // Helper functions para el estado
@@ -286,9 +261,6 @@ function getEstadoTitle($estado) {
         default: return 'Estado Desconocido';
     }
 }
-
-// Función helper para formatear el estado del texto
-
 
 $pageTitle = "Detalle de Solicitud - " . APP_NAME;
 include '../../includes/header.php';
@@ -617,8 +589,8 @@ include '../../includes/sidebar.php';
                     </div>
                     <div class="timeline-body">
                         <p><strong><?= htmlspecialchars($historial['usuario_nombre'] ?? 'Sistema') ?></strong></p>
-                        <?php if (isset($historial['observaciones']) && $historial['observaciones']): ?>
-                        <p><?= htmlspecialchars($historial['observaciones']) ?></p>
+                        <?php if (isset($historial['comentarios']) && $historial['comentarios']): ?>
+                        <p><?= htmlspecialchars($historial['comentarios']) ?></p>
                         <?php endif; ?>
                     </div>
                 </div>
@@ -1801,7 +1773,6 @@ function showApprovalModal() {
     modal.classList.add('active');
     modal.style.display = 'flex';
     
-    // Focus on textarea después de que el modal sea visible
     setTimeout(() => {
         const textarea = modal.querySelector('#observaciones_aprobacion');
         if (textarea) textarea.focus();
@@ -1813,7 +1784,6 @@ function showRejectionModal() {
     modal.classList.add('active');
     modal.style.display = 'flex';
     
-    // Focus on required textarea
     setTimeout(() => {
         const textarea = modal.querySelector('#motivo_rechazo');
         if (textarea) textarea.focus();
@@ -1824,62 +1794,20 @@ function closeModal(modalId) {
     const modal = document.getElementById(modalId);
     modal.classList.remove('active');
     
-    // Animate out
     modal.style.opacity = '0';
     setTimeout(() => {
         modal.style.display = 'none';
         modal.style.opacity = '';
         
-        // Reset form
         const form = modal.querySelector('form');
         if (form) {
             form.reset();
-            // Restaurar estilos de validación
             const fields = form.querySelectorAll('input, textarea, select');
             fields.forEach(field => {
                 field.style.borderColor = '';
             });
         }
     }, 300);
-}
-
-function showNotification(message, type = 'info') {
-    const notification = document.createElement('div');
-    notification.className = `notification ${type}`;
-    notification.innerHTML = `
-        <i class="fas fa-${type === 'success' ? 'check' : type === 'error' ? 'times' : 'info'}-circle"></i>
-        <span>${message}</span>
-    `;
-    
-    notification.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: var(--${type === 'success' ? 'success' : type === 'error' ? 'error' : 'info'});
-        color: white;
-        padding: 1rem 1.5rem;
-        border-radius: var(--radius);
-        box-shadow: var(--shadow-lg);
-        z-index: 1001;
-        animation: slideIn 0.3s ease-out;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        max-width: 400px;
-        word-wrap: break-word;
-    `;
-    
-    document.body.appendChild(notification);
-    
-    setTimeout(() => {
-        notification.style.opacity = '0';
-        notification.style.transform = 'translateX(100%)';
-        setTimeout(() => {
-            if (notification.parentNode) {
-                notification.remove();
-            }
-        }, 300);
-    }, 4000);
 }
 
 // Close modals when clicking outside
@@ -1902,33 +1830,12 @@ document.addEventListener('keydown', function(e) {
     }
 });
 
-// Copy email functionality
-document.addEventListener('click', function(e) {
-    if (e.target.matches('a[href^="mailto:"]')) {
-        e.preventDefault();
-        const email = e.target.textContent;
-        
-        if (navigator.clipboard) {
-            navigator.clipboard.writeText(email).then(() => {
-                showNotification('Email copiado al portapapeles', 'success');
-            }).catch(() => {
-                // Fallback si falla
-                window.location.href = e.target.href;
-            });
-        } else {
-            // Fallback para navegadores sin clipboard API
-            window.location.href = e.target.href;
-        }
-    }
-});
-
-// Mejorar el manejo de formularios
+// Form validation and submission handling
 document.addEventListener('submit', function(e) {
     const form = e.target;
     const submitBtn = form.querySelector('button[type="submit"]');
     
     if (submitBtn) {
-        // Verificar campos requeridos
         const requiredFields = form.querySelectorAll('[required]');
         let isValid = true;
         
@@ -1944,24 +1851,15 @@ document.addEventListener('submit', function(e) {
         
         if (!isValid) {
             e.preventDefault();
-            showNotification('Por favor complete todos los campos requeridos', 'error');
             return;
         }
         
-        // Aplicar estado de carga
         const originalText = submitBtn.innerHTML;
         submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
         submitBtn.disabled = true;
-        
-        // En caso de error, restaurar el botón después de un tiempo
-        setTimeout(() => {
-            if (submitBtn.disabled) {
-                submitBtn.innerHTML = originalText;
-                submitBtn.disabled = false;
-            }
-        }, 10000);
     }
 });
 </script>
-
-<?php include '../../includes/footer.php'; ?>
+<?php 
+ob_end_flush();
+include '../../includes/footer.php'; ?>

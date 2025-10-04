@@ -14,6 +14,7 @@ if (!$jefeDepto) {
     redirectTo('/dashboard/jefe_departamento.php');
 }
 $jefeId = $jefeDepto['id'];
+
 // Validar ID de la solicitud
 $solicitudId = $_GET['id'] ?? null;
 if (!$solicitudId || !is_numeric($solicitudId)) {
@@ -24,7 +25,8 @@ if (!$solicitudId || !is_numeric($solicitudId)) {
 // Obtener datos de la solicitud
 $solicitud = $db->fetch("
     SELECT s.*, e.nombre as estudiante_nombre, e.apellido_paterno, 
-           p.nombre_proyecto, p.cupo_disponible, p.cupo_ocupado
+           p.nombre_proyecto, p.cupo_disponible, p.cupo_ocupado,
+           e.usuario_id as estudiante_usuario_id
     FROM solicitudes_servicio s
     JOIN estudiantes e ON s.estudiante_id = e.id
     JOIN proyectos_laboratorio p ON s.proyecto_id = p.id
@@ -39,7 +41,7 @@ if (!$solicitud) {
 // Verificar que haya cupo disponible
 if ($solicitud['cupo_ocupado'] >= $solicitud['cupo_disponible']) {
     flashMessage('No hay cupo disponible en este proyecto', 'error');
-    redirectTo('/modules/departamento/solicitud-detalle.php?id=' . $solicitudId);
+    redirectTo('/modules/departamento/solicitudes.php');
 }
 
 // Procesar aprobación
@@ -86,28 +88,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]);
         
         // Registrar en historial
-        insertHistorialEstado($solicitudId, 'pendiente', 'aprobada', $usuario['id'], 
-                            'Solicitud aprobada por jefe de departamento' . ($observaciones ? '. Observaciones: ' . $observaciones : ''));
+        $db->insert('historial_estados', [
+            'solicitud_id' => $solicitudId,
+            'estado_anterior' => 'pendiente',
+            'estado_nuevo' => 'aprobada',
+            'usuario_id' => $usuario['id'],
+            'comentarios' => 'Solicitud aprobada por jefe de departamento' . ($observaciones ? '. Observaciones: ' . $observaciones : ''),
+            'fecha_cambio' => date('Y-m-d H:i:s')
+        ]);
         
         // Notificar al estudiante
-        createNotification(
-            $solicitud['estudiante_id'],
-            'Solicitud Aprobada',
-            'Tu solicitud de servicio social ha sido aprobada. Ya puedes descargar tu oficio de presentación.',
-            'success',
-            '/modules/estudiantes/documentos.php'
-        );
-        
-        // Notificar al jefe de laboratorio si existe
-        if ($solicitud['jefe_laboratorio_id']) {
-            createNotification(
-                $solicitud['jefe_laboratorio_id'],
-                'Nuevo Estudiante Asignado',
-                "El estudiante {$solicitud['estudiante_nombre']} {$solicitud['apellido_paterno']} iniciará servicio social en tu laboratorio.",
-                'info',
-                "/modules/laboratorio/estudiante-detalle.php?id={$solicitud['estudiante_id']}"
-            );
-        }
+        $db->insert('notificaciones', [
+            'usuario_id' => $solicitud['estudiante_usuario_id'],
+            'titulo' => 'Solicitud Aprobada',
+            'mensaje' => 'Tu solicitud de servicio social ha sido aprobada. Ya puedes descargar tu oficio de presentación.',
+            'tipo' => 'success',
+            'url_accion' => '/modules/estudiantes/documentos.php'
+        ]);
         
         // Log de actividad
         logActivity($usuario['id'], 'aprobar_solicitud', 'solicitudes', $solicitudId, [
@@ -118,32 +115,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $db->commit();
         
         flashMessage('Solicitud aprobada exitosamente', 'success');
-        redirectTo('/modules/departamento/solicitud-detalle.php?id=' . $solicitudId);
+        redirectTo('/modules/departamento/solicitudes.php');
         
     } catch (Exception $e) {
         $db->rollback();
+        error_log("Error al aprobar solicitud: " . $e->getMessage());
         flashMessage('Error al aprobar la solicitud: ' . $e->getMessage(), 'error');
-        redirectTo('/modules/departamento/solicitud-detalle.php?id=' . $solicitudId);
+        redirectTo('/modules/departamento/solicitudes.php');
     }
-}
-
-// Funciones helper
-function insertHistorialEstado($solicitudId, $estadoAnterior, $estadoNuevo, $usuarioId, $observaciones = null) {
-    global $db;
-    $db->insert('historial_estados', [
-        'solicitud_id' => $solicitudId,
-        'estado_anterior' => $estadoAnterior,
-        'estado_nuevo' => $estadoNuevo,
-        'usuario_id' => $usuarioId,
-        'observaciones' => $observaciones,
-        'fecha_cambio' => date('Y-m-d H:i:s')
-    ]);
 }
 
 $pageTitle = "Aprobar Solicitud - " . APP_NAME;
 include '../../includes/header.php';
 include '../../includes/sidebar.php';
 ?>
+
+<!-- El resto del HTML sigue igual -->
 
 <div class="main-wrapper">
     <div class="dashboard-container">

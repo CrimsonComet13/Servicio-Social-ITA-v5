@@ -1115,10 +1115,10 @@ body {
                                     </a>
                                     
                                     <?php if (($solicitud['estado'] ?? '') === 'pendiente'): ?>
-                                        <a href="/modules/departamento/aprobar-solicitud.php?id=<?= $solicitud['id'] ?>" class="btn btn-sm btn-success">
+                                        <a href="aprobar-solicitud.php?id=<?= $solicitud['id'] ?>" class="btn btn-sm btn-success">
                                             <i class="fas fa-check"></i> Aprobar
                                         </a>
-                                        <a href="/modules/departamento/rechazar-solicitud.php?id=<?= $solicitud['id'] ?>" class="btn btn-sm btn-danger">
+                                        <a href="rechazar-solicitud.php?id=<?= $solicitud['id'] ?>" class="btn btn-sm btn-danger">
                                             <i class="fas fa-times"></i> Rechazar
                                         </a>
                                     <?php endif; ?>

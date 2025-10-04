@@ -23,10 +23,10 @@ $stats = $db->fetch("
     WHERE jl.id = :jefe_id
 ", ['jefe_id' => $jefeLabId]);
 
-// Obtener estudiantes activos
+// ✅ CORRECCIÓN: Obtener estudiantes activos - horas_completadas está en tabla estudiantes
 $estudiantesActivos = $db->fetchAll("
     SELECT e.*, s.fecha_inicio_propuesta, s.fecha_fin_propuesta,
-           p.nombre_proyecto, s.horas_completadas
+           p.nombre_proyecto, e.horas_completadas
     FROM estudiantes e
     JOIN solicitudes_servicio s ON e.id = s.estudiante_id
     JOIN proyectos_laboratorio p ON s.proyecto_id = p.id
@@ -129,7 +129,7 @@ include '../includes/sidebar.php';
                             <td><?= htmlspecialchars($estudiante['nombre'] . ' ' . $estudiante['apellido_paterno']) ?></td>
                             <td><?= htmlspecialchars($estudiante['nombre_proyecto']) ?></td>
                             <td><?= formatDate($estudiante['fecha_inicio_propuesta']) ?> - <?= formatDate($estudiante['fecha_fin_propuesta']) ?></td>
-                            <td><?= $estudiante['horas_completadas'] ?> horas</td>
+                            <td><?= $estudiante['horas_completadas'] ?? 0 ?> horas</td>
                             <td>
                                 <a href="/modules/laboratorio/estudiante-detalle.php?id=<?= $estudiante['id'] ?>" class="btn btn-sm btn-info">
                                     Ver Detalles
@@ -175,7 +175,7 @@ include '../includes/sidebar.php';
                             <td><?= htmlspecialchars($reporte['nombre_proyecto']) ?></td>
                             <td>Reporte <?= $reporte['numero_reporte'] ?></td>
                             <td><?= formatDate($reporte['fecha_entrega']) ?></td>
-                            <td><?= $reporte['horas_reportadas'] ?></td>
+                            <td><?= $reporte['horas_reportadas'] ?? 0 ?></td>
                             <td>
                                 <a href="/modules/laboratorio/evaluar-reporte.php?id=<?= $reporte['id'] ?>" class="btn btn-sm btn-success">
                                     Evaluar

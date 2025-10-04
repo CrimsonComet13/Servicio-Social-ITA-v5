@@ -349,10 +349,8 @@ include '../../includes/sidebar.php';
                                     <i class="fas fa-ellipsis-v"></i>
                                 </button>
                                 <div class="dropdown-menu" id="project-<?= $proyecto['id'] ?>">
-                                    <a href="proyecto-duplicar.php?id=<?= $proyecto['id'] ?>" class="dropdown-item">
-                                        <i class="fas fa-copy"></i> Duplicar
-                                    </a>
-                                    <a href="proyecto-reportes.php?id=<?= $proyecto['id'] ?>" class="dropdown-item">
+                                    
+                                    <a href="reportes.php?id=<?= $proyecto['id'] ?>" class="dropdown-item">
                                         <i class="fas fa-chart-bar"></i> Reportes
                                     </a>
                                     <hr class="dropdown-divider">
@@ -723,10 +721,11 @@ include '../../includes/sidebar.php';
     background: var(--bg-white);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow);
-    overflow: hidden;
+    overflow: visible;
     transition: var(--transition);
     border: 1px solid var(--border-light);
     animation: fadeInUp 0.6s ease-out;
+    position: relative;
 }
 
 .project-card:hover {
@@ -989,6 +988,7 @@ include '../../includes/sidebar.php';
 /* Dropdown */
 .dropdown {
     position: relative;
+    z-index: 10;
 }
 
 .dropdown-toggle {
@@ -1004,18 +1004,19 @@ include '../../includes/sidebar.php';
 
 .dropdown-menu {
     position: absolute;
-    top: 100%;
+    top: calc(100% + 5px);  /* Espacio entre botón y menú */
     right: 0;
     background: var(--bg-white);
     border-radius: var(--radius);
-    box-shadow: var(--shadow-lg);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);  /* Sombra más pronunciada */
     border: 1px solid var(--border);
-    min-width: 160px;
+    min-width: 180px;
     z-index: 1000;
     opacity: 0;
     visibility: hidden;
     transform: translateY(-10px);
     transition: var(--transition);
+    padding: 0.5rem 0;  /* Padding para el contenedor */
 }
 
 .dropdown-menu.show {
