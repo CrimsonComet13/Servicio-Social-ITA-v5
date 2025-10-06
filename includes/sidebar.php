@@ -46,7 +46,7 @@ $menusByRole = [
         [
             'label' => 'Dashboard',
             'icon' => 'fas fa-home',
-            'url' => BASE_URL . 'dashboard/jefe-laboratorio.php',
+            'url' => BASE_URL . 'dashboard/jefe_laboratorio.php',
             'badge' => null
         ],
         [
@@ -77,7 +77,8 @@ $menusByRole = [
             'icon' => 'fas fa-chart-line',
             'url' => BASE_URL . 'modules/laboratorio/reportes.php',
             'badge' => null
-        ]
+        ],
+     
     ],
     'jefe_departamento' => [
         [
@@ -228,71 +229,6 @@ function hasActiveSubmenu($submenu, $currentPath) {
                 </li>
                 <?php endforeach; ?>
             </ul>
-        </div>
-        
-        <!-- Quick Stats Section -->
-        <div class="nav-section">
-            <div class="section-title">Estadísticas Rápidas</div>
-            <div class="quick-stats">
-                <?php if ($currentRole === 'estudiante'): ?>
-                <div class="stat-item">
-                    <div class="stat-icon primary">
-                        <i class="fas fa-clock"></i>
-                    </div>
-                    <div class="stat-content">
-                        <span class="stat-value"><?= $estudiante['horas_completadas'] ?? 0 ?></span>
-                        <span class="stat-label">Horas</span>
-                    </div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-icon success">
-                        <i class="fas fa-file-alt"></i>
-                    </div>
-                    <div class="stat-content">
-                        <span class="stat-value">4</span>
-                        <span class="stat-label">Reportes</span>
-                    </div>
-                </div>
-                <?php elseif ($currentRole === 'jefe_laboratorio'): ?>
-                <div class="stat-item">
-                    <div class="stat-icon info">
-                        <i class="fas fa-users"></i>
-                    </div>
-                    <div class="stat-content">
-                        <span class="stat-value">24</span>
-                        <span class="stat-label">Estudiantes</span>
-                    </div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-icon warning">
-                        <i class="fas fa-star"></i>
-                    </div>
-                    <div class="stat-content">
-                        <span class="stat-value">8</span>
-                        <span class="stat-label">Pendientes</span>
-                    </div>
-                </div>
-                <?php elseif ($currentRole === 'jefe_departamento'): ?>
-                <div class="stat-item">
-                    <div class="stat-icon primary">
-                        <i class="fas fa-clipboard-check"></i>
-                    </div>
-                    <div class="stat-content">
-                        <span class="stat-value">47</span>
-                        <span class="stat-label">Solicitudes</span>
-                    </div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-icon success">
-                        <i class="fas fa-percentage"></i>
-                    </div>
-                    <div class="stat-content">
-                        <span class="stat-value">94%</span>
-                        <span class="stat-label">Efectividad</span>
-                    </div>
-                </div>
-                <?php endif; ?>
-            </div>
         </div>
     </nav>
     

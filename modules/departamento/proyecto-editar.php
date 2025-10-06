@@ -475,7 +475,7 @@ include '../../includes/sidebar.php';
                     <i class="fas fa-save"></i> 
                     <span>Guardar Cambios</span>
                 </button>
-                <a href="/modules/departamento/proyectos.php" class="btn btn-secondary">
+                <a href="/../modules/departamento/proyectos.php" class="btn btn-secondary">
                     <i class="fas fa-times"></i> 
                     <span>Cancelar</span>
                 </a>
