@@ -398,31 +398,7 @@ include '../includes/sidebar.php';
     <!-- STATUS OVERVIEW REDESIGN -->
     <div class="status-overview-redesign">
         <!-- Estado del Servicio - Tarjeta Principal -->
-        <div class="service-status-card <?= getEstadoCssClass($estudiante['estado_servicio'] ?? 'sin_solicitud') ?>">
-            <div class="service-status-content">
-                <div class="service-status-icon">
-                    <i class="fas fa-<?= getEstadoIcon($estudiante['estado_servicio'] ?? 'sin_solicitud') ?>"></i>
-                </div>
-                <div class="service-status-info">
-                    <h2 class="service-status-title"><?= getEstadoTitle($estudiante['estado_servicio'] ?? 'sin_solicitud') ?></h2>
-                    <div class="service-status-badge">
-                        <i class="fas fa-check-circle"></i>
-                        <span><?= getEstadoTextDashboard($estudiante['estado_servicio'] ?? 'sin_solicitud') ?></span>
-                    </div>
-                    <?php if ($solicitudActiva): ?>
-                    <div class="service-project-info">
-                        <div class="service-project-name"><?= htmlspecialchars($solicitudActiva['nombre_proyecto'] ?? 'Sin proyecto') ?></div>
-                        <div class="service-project-lab"><?= htmlspecialchars($solicitudActiva['laboratorio'] ?? 'Sin laboratorio') ?></div>
-                    </div>
-                    <?php else: ?>
-                    <div class="service-project-info">
-                        <div class="service-project-name">¡Comienza tu Servicio Social!</div>
-                        <div class="service-project-lab">Envía tu solicitud para iniciar</div>
-                    </div>
-                    <?php endif; ?>
-                </div>
-            </div>
-        </div>
+
 
         <!-- Progreso de Horas - Tarjeta Circular -->
         <div class="progress-card">
