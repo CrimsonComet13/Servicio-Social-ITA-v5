@@ -53,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         // Aprobar solicitud
         $updateResult = $db->update('solicitudes_servicio', [
-            'estado' => 'aprobada',
+            'estado' => 'en_proceso',
             'observaciones_jefe' => $observaciones,
             'aprobada_por' => $usuario['id'],
             'fecha_aprobacion' => date('Y-m-d H:i:s')
@@ -65,7 +65,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         // Actualizar estado del estudiante
         $db->update('estudiantes', [
-            'estado_servicio' => 'aprobado'
+            'estado_servicio' => 'en_proceso',  // ← Cambiar a "en_proceso"
+            'fecha_inicio_servicio' => $solicitud['fecha_inicio_propuesta'],
+            'fecha_fin_servicio' => $solicitud['fecha_fin_propuesta']
         ], 'id = :id', ['id' => $solicitud['estudiante_id']]);
         
         // Incrementar cupo ocupado del proyecto

@@ -293,12 +293,12 @@ include '../../includes/sidebar.php';
                 <p class="page-subtitle">Información completa y gestión de la solicitud de servicio social</p>
             </div>
             <div class="header-actions">
-                <a href="/modules/departamento/solicitudes.php" class="btn btn-secondary">
+                <a href="/servicio_social_ita/modules/departamento/solicitudes.php" class="btn btn-secondary">
                     <i class="fas fa-arrow-left"></i>
                     Volver a Solicitudes
                 </a>
                 <?php if ($solicitud['estado'] === 'aprobada'): ?>
-                <a href="/modules/departamento/generar-oficio.php?solicitud_id=<?= $solicitudId ?>" class="btn btn-info">
+                <a href="/servicio_social_ita/modules/departamento/generar-oficio.php?solicitud_id=<?= $solicitudId ?>" class="btn btn-info">
                     <i class="fas fa-file-pdf"></i>
                     Ver Oficio
                 </a>

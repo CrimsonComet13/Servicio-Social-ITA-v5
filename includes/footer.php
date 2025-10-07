@@ -127,7 +127,7 @@ function getSafeUserEmail($usuario) {
                 <div class="footer-section brand-section">
                     <div class="footer-brand">
                         <div class="brand-logo">
-                            <img src="assets/images/logo-ita.png" alt="Logo ITA">
+                            <img src="../assets/images/logo-ita.png" alt="Logo ITA">
                         </div>
                         <div class="brand-info">
                             <h4>ITA Social</h4>
@@ -153,20 +153,20 @@ function getSafeUserEmail($usuario) {
                 <div class="footer-section">
                     <h5>Estudiantes</h5>
                     <nav class="footer-nav">
-                        <a href="auth/register.php">Registrarse</a>
-                        <a href="auth/login.php">Iniciar Sesión</a>
-                        <a href="help/como-empezar.php">Cómo Empezar</a>
-                        <a href="help/requisitos.php">Requisitos</a>
+                        <a href="../auth/register.php">Registrarse</a>
+                        <a href="../auth/login.php">Iniciar Sesión</a>
+                        <a href="../help/como-empezar.php">Cómo Empezar</a>
+                        <a href="../help/requisitos.php">Requisitos</a>
                     </nav>
                 </div>
                 
                 <div class="footer-section">
                     <h5>Instituciones</h5>
                     <nav class="footer-nav">
-                        <a href="auth/register-jefe.php">Registro</a>
-                        <a href="help/instituciones.php">Información</a>
-                        <a href="contacto.php">Colaborar</a>
-                        <a href="help/beneficios.php">Beneficios</a>
+                        <a href="../auth/register-jefe.php">Registro</a>
+                        <a href="../help/instituciones.php">Información</a>
+                        <a href="../contacto.php">Colaborar</a>
+                        <a href="../help/beneficios.php">Beneficios</a>
                     </nav>
                 </div>
                 
@@ -194,9 +194,9 @@ function getSafeUserEmail($usuario) {
                     <div class="copyright">
                         <p>&copy; <?= date('Y') ?> Instituto Tecnológico de Aguascalientes. Todos los derechos reservados.</p>
                         <div class="legal-links">
-                            <a href="legal/privacidad.php">Privacidad</a>
-                            <a href="legal/terminos.php">Términos</a>
-                            <a href="legal/cookies.php">Cookies</a>
+                            <a href="../legal/privacidad.php">Privacidad</a>
+                            <a href="../legal/terminos.php">Términos</a>
+                            <a href="../legal/cookies.php">Cookies</a>
                         </div>
                     </div>
                     

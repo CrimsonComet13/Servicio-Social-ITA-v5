@@ -849,12 +849,12 @@ body {
                         </td>
                         <td>
                             <div class="action-buttons">
-                                <a href="/modules/departamento/estudiante-detalle.php?id=<?= $estudiante['id'] ?>" class="btn btn-sm btn-info">
+                                <a href="/servicio_social_ita/modules/departamento/estudiante-detalle.php?id=<?= $estudiante['id'] ?>" class="btn btn-sm btn-info">
                                     <i class="fas fa-eye"></i> Ver
                                 </a>
                                 
                                 <?php if ($estudiante['estado_servicio'] === 'en_proceso'): ?>
-                                    <a href="/modules/departamento/generar-constancia.php?estudiante_id=<?= $estudiante['id'] ?>" class="btn btn-sm btn-success">
+                                    <a href="/servicio_social_ita/modules/departamento/generar-constancia.php?estudiante_id=<?= $estudiante['id'] ?>" class="btn btn-sm btn-success">
                                         <i class="fas fa-file-pdf"></i> Constancia
                                     </a>
                                 <?php endif; ?>
