@@ -10,8 +10,20 @@ $db = Database::getInstance();
 $usuario = $session->getUser();
 $jefeLabId = $usuario['id'];
 
-// Obtener el nombre del laboratorio
-$nombreLaboratorio = $usuario['laboratorio'] ?? 'Sin asignar';
+$jefeLab = $db->fetch("
+    SELECT jl.*, u.email 
+    FROM jefes_laboratorio jl
+    JOIN usuarios u ON jl.usuario_id = u.id
+    WHERE jl.usuario_id = ?
+", [$usuarioId]);
+
+if (!$jefeLab) {
+    flashMessage('Error: Perfil de jefe de laboratorio no encontrado', 'error');
+    redirectTo('/dashboard/jefe_laboratorio.php');
+}
+
+$jefeLabId = $jefeLab['id']; // ✅ ID CORRECTO de jefes_laboratorio
+$nombreLaboratorio = $jefeLab['laboratorio'] ?? 'Sin asignar'; // ✅ NOMBRE CORRECTO
 
 // Variables para el formulario
 $errors = [];
