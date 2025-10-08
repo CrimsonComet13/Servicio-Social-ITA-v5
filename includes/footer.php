@@ -110,11 +110,6 @@ function getSafeUserEmail($usuario) {
                         </div>
                     </div>
                     
-                    <div class="footer-actions">
-                        <button class="theme-toggle" id="themeToggle" aria-label="Cambiar tema">
-                            <i class="fas fa-moon"></i>
-                        </button>
-                    </div>
                 </div>
             </div>
         </div>
