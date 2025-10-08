@@ -8,12 +8,13 @@ $session->requireRole('jefe_departamento');
 
 $db = Database::getInstance();
 $usuario = $session->getUser();
-$jefeDepto = $db->fetch("SELECT id FROM jefes_departamento WHERE usuario_id = ?", [$usuario['id']]);
+$jefeDepto = $db->fetch("SELECT id, departamento FROM jefes_departamento WHERE usuario_id = ?", [$usuario['id']]);
 if (!$jefeDepto) {
     flashMessage('No se encontró el perfil de jefe de departamento', 'error');
     redirectTo('/dashboard/jefe_departamento.php');
 }
 $jefeId = $jefeDepto['id'];
+$departamento = $jefeDepto['departamento'];
 
 // Procesar filtros de reportes
 $fechaInicio = $_GET['fecha_inicio'] ?? date('Y-m-d', strtotime('-1 month'));
@@ -29,18 +30,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && !empty($_GET)) {
     
     switch ($tipoReporte) {
         case 'estadisticas':
+            // MEJORADO: Estadísticas más detalladas con información de estudiantes y proyectos
             $reporteData = $db->fetchAll("
                 SELECT 
                     DATE(s.fecha_solicitud) as fecha,
                     COUNT(*) as total_solicitudes,
                     COUNT(CASE WHEN s.estado = 'aprobada' THEN 1 END) as aprobadas,
                     COUNT(CASE WHEN s.estado = 'rechazada' THEN 1 END) as rechazadas,
-                    COUNT(CASE WHEN s.estado = 'pendiente' THEN 1 END) as pendientes
+                    COUNT(CASE WHEN s.estado = 'pendiente' THEN 1 END) as pendientes,
+                    COUNT(CASE WHEN s.estado = 'en_proceso' THEN 1 END) as en_proceso,
+                    COUNT(CASE WHEN s.estado = 'concluida' THEN 1 END) as concluidas,
+                    COUNT(CASE WHEN s.estado = 'cancelada' THEN 1 END) as canceladas,
+                    GROUP_CONCAT(DISTINCT e.carrera SEPARATOR ', ') as carreras,
+                    GROUP_CONCAT(DISTINCT p.nombre_proyecto SEPARATOR ', ') as proyectos,
+                    AVG(DATEDIFF(s.fecha_aprobacion, s.fecha_solicitud)) as dias_promedio_aprobacion,
+                    COUNT(DISTINCT e.id) as estudiantes_unicos,
+                    COUNT(DISTINCT p.id) as proyectos_unicos
                 FROM solicitudes_servicio s
+                JOIN estudiantes e ON s.estudiante_id = e.id
+                LEFT JOIN proyectos_laboratorio p ON s.proyecto_id = p.id
                 WHERE s.jefe_departamento_id = :jefe_id
                 AND s.fecha_solicitud BETWEEN :fecha_inicio AND :fecha_fin
                 GROUP BY DATE(s.fecha_solicitud)
-                ORDER BY fecha
+                ORDER BY fecha DESC
             ", [
                 'jefe_id' => $jefeId,
                 'fecha_inicio' => $fechaInicio,
@@ -49,14 +61,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && !empty($_GET)) {
             break;
             
         case 'horas':
+            // MEJORADO: Horas por carrera con más detalles de progreso y desempeño
             $reporteData = $db->fetchAll("
                 SELECT 
                     e.carrera,
                     COUNT(DISTINCT s.estudiante_id) as total_estudiantes,
                     COALESCE(SUM(e.horas_completadas), 0) as horas_totales,
-                    COALESCE(AVG(e.horas_completadas), 0) as horas_promedio
+                    COALESCE(AVG(e.horas_completadas), 0) as horas_promedio,
+                    COALESCE(MIN(e.horas_completadas), 0) as horas_minimas,
+                    COALESCE(MAX(e.horas_completadas), 0) as horas_maximas,
+                    COUNT(CASE WHEN s.estado = 'en_proceso' THEN 1 END) as estudiantes_activos,
+                    COUNT(CASE WHEN s.estado = 'concluida' THEN 1 END) as estudiantes_concluidos,
+                    COUNT(CASE WHEN e.horas_completadas >= 500 THEN 1 END) as estudiantes_completos,
+                    ROUND(AVG(e.horas_completadas / 500 * 100), 2) as porcentaje_avance_promedio,
+                    AVG(DATEDIFF(CURDATE(), s.fecha_inicio_propuesta)) as dias_promedio_transcurridos,
+                    GROUP_CONCAT(DISTINCT p.nombre_proyecto SEPARATOR ', ') as proyectos_asignados
                 FROM solicitudes_servicio s
                 JOIN estudiantes e ON s.estudiante_id = e.id
+                LEFT JOIN proyectos_laboratorio p ON s.proyecto_id = p.id
                 WHERE s.jefe_departamento_id = :jefe_id
                 AND s.estado IN ('en_proceso', 'concluida')
                 GROUP BY e.carrera
@@ -65,21 +87,79 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && !empty($_GET)) {
             break;
             
         case 'laboratorios':
+            // MEJORADO: Desempeño por laboratorio con métricas de eficiencia y calidad
             $reporteData = $db->fetchAll("
                 SELECT 
                     jl.laboratorio,
                     jl.nombre as jefe_laboratorio,
+                    jl.email as email_laboratorio,
+                    jl.telefono as telefono_laboratorio,
+                    jl.especialidad,
                     COUNT(DISTINCT p.id) as total_proyectos,
                     COUNT(DISTINCT s.estudiante_id) as total_estudiantes,
-                    COALESCE(SUM(e.horas_completadas), 0) as horas_totales
+                    COALESCE(SUM(e.horas_completadas), 0) as horas_totales,
+                    COALESCE(AVG(e.horas_completadas), 0) as horas_promedio_estudiante,
+                    COUNT(CASE WHEN s.estado = 'en_proceso' THEN 1 END) as estudiantes_activos,
+                    COUNT(CASE WHEN s.estado = 'concluida' THEN 1 END) as estudiantes_concluidos,
+                    COUNT(CASE WHEN s.estado = 'aprobada' THEN 1 END) as solicitudes_aprobadas,
+                    COUNT(CASE WHEN s.estado = 'pendiente' THEN 1 END) as solicitudes_pendientes,
+                    ROUND(AVG(e.horas_completadas / 500 * 100), 2) as porcentaje_avance_promedio,
+                    COUNT(CASE WHEN e.horas_completadas >= 500 THEN 1 END) as estudiantes_completos,
+                    ROUND((COUNT(CASE WHEN e.horas_completadas >= 500 THEN 1 END) / COUNT(DISTINCT s.estudiante_id) * 100), 2) as tasa_finalizacion,
+                    AVG(DATEDIFF(s.fecha_aprobacion, s.fecha_solicitud)) as dias_promedio_aprobacion,
+                    GROUP_CONCAT(DISTINCT e.carrera SEPARATOR ', ') as carreras_atendidas,
+                    GROUP_CONCAT(DISTINCT p.nombre_proyecto ORDER BY p.nombre_proyecto SEPARATOR ', ') as proyectos_activos
                 FROM jefes_laboratorio jl
                 LEFT JOIN proyectos_laboratorio p ON jl.id = p.jefe_laboratorio_id
                 LEFT JOIN solicitudes_servicio s ON p.id = s.proyecto_id
                 LEFT JOIN estudiantes e ON s.estudiante_id = e.id
                 WHERE jl.jefe_departamento_id = :jefe_id
+                AND jl.activo = 1
                 GROUP BY jl.id
                 ORDER BY horas_totales DESC
             ", ['jefe_id' => $jefeId]);
+            break;
+            
+        // Reporte detallado de estudiantes
+        case 'estudiantes':
+            $reporteData = $db->fetchAll("
+                SELECT 
+                    e.numero_control,
+                    e.nombre,
+                    e.apellido_paterno,
+                    e.apellido_materno,
+                    e.carrera,
+                    e.semestre,
+                    e.telefono,
+                    e.horas_completadas,
+                    ROUND((e.horas_completadas / 500 * 100), 2) as porcentaje_avance,
+                    u.email,
+                    s.estado as estado_servicio,
+                    s.fecha_inicio_propuesta,
+                    s.fecha_fin_propuesta,
+                    s.fecha_solicitud,
+                    s.fecha_aprobacion,
+                    DATEDIFF(CURDATE(), s.fecha_inicio_propuesta) as dias_transcurridos,
+                    DATEDIFF(s.fecha_fin_propuesta, CURDATE()) as dias_restantes,
+                    p.nombre_proyecto,
+                    p.descripcion as proyecto_descripcion,
+                    jl.nombre as jefe_laboratorio,
+                    jl.laboratorio,
+                    jl.email as email_laboratorio,
+                    jl.telefono as telefono_laboratorio
+                FROM estudiantes e
+                JOIN solicitudes_servicio s ON e.id = s.estudiante_id
+                JOIN usuarios u ON e.usuario_id = u.id
+                LEFT JOIN proyectos_laboratorio p ON s.proyecto_id = p.id
+                LEFT JOIN jefes_laboratorio jl ON s.jefe_laboratorio_id = jl.id
+                WHERE s.jefe_departamento_id = :jefe_id
+                AND s.fecha_solicitud BETWEEN :fecha_inicio AND :fecha_fin
+                ORDER BY e.apellido_paterno, e.apellido_materno, e.nombre
+            ", [
+                'jefe_id' => $jefeId,
+                'fecha_inicio' => $fechaInicio,
+                'fecha_fin' => $fechaFin . ' 23:59:59'
+            ]);
             break;
     }
 }
@@ -93,14 +173,19 @@ if (!empty($reporteData)) {
                 'total_solicitudes' => array_sum(array_column($reporteData, 'total_solicitudes')),
                 'total_aprobadas' => array_sum(array_column($reporteData, 'aprobadas')),
                 'total_rechazadas' => array_sum(array_column($reporteData, 'rechazadas')),
-                'total_pendientes' => array_sum(array_column($reporteData, 'pendientes'))
+                'total_pendientes' => array_sum(array_column($reporteData, 'pendientes')),
+                'total_en_proceso' => array_sum(array_column($reporteData, 'en_proceso')),
+                'total_concluidas' => array_sum(array_column($reporteData, 'concluidas')),
+                'dias_promedio_aprobacion' => round(array_sum(array_filter(array_column($reporteData, 'dias_promedio_aprobacion'))) / count(array_filter(array_column($reporteData, 'dias_promedio_aprobacion'))) ?: 0, 1)
             ];
             break;
         case 'horas':
             $resumenData = [
                 'total_estudiantes' => array_sum(array_column($reporteData, 'total_estudiantes')),
                 'total_horas' => array_sum(array_column($reporteData, 'horas_totales')),
-                'promedio_general' => count($reporteData) > 0 ? array_sum(array_column($reporteData, 'horas_promedio')) / count($reporteData) : 0
+                'promedio_general' => count($reporteData) > 0 ? array_sum(array_column($reporteData, 'horas_promedio')) / count($reporteData) : 0,
+                'estudiantes_completos' => array_sum(array_column($reporteData, 'estudiantes_completos')),
+                'porcentaje_avance_global' => count($reporteData) > 0 ? array_sum(array_column($reporteData, 'porcentaje_avance_promedio')) / count($reporteData) : 0
             ];
             break;
         case 'laboratorios':
@@ -108,7 +193,18 @@ if (!empty($reporteData)) {
                 'total_laboratorios' => count($reporteData),
                 'total_proyectos' => array_sum(array_column($reporteData, 'total_proyectos')),
                 'total_estudiantes' => array_sum(array_column($reporteData, 'total_estudiantes')),
-                'total_horas' => array_sum(array_column($reporteData, 'horas_totales'))
+                'total_horas' => array_sum(array_column($reporteData, 'horas_totales')),
+                'estudiantes_completos' => array_sum(array_column($reporteData, 'estudiantes_completos')),
+                'tasa_finalizacion_promedio' => count($reporteData) > 0 ? array_sum(array_filter(array_column($reporteData, 'tasa_finalizacion'))) / count(array_filter(array_column($reporteData, 'tasa_finalizacion'))) : 0
+            ];
+            break;
+        case 'estudiantes':
+            $resumenData = [
+                'total_estudiantes' => count($reporteData),
+                'total_horas' => array_sum(array_column($reporteData, 'horas_completadas')),
+                'promedio_horas' => count($reporteData) > 0 ? array_sum(array_column($reporteData, 'horas_completadas')) / count($reporteData) : 0,
+                'carreras_unicas' => count(array_unique(array_column($reporteData, 'carrera'))),
+                'porcentaje_avance_promedio' => count($reporteData) > 0 ? array_sum(array_column($reporteData, 'porcentaje_avance')) / count($reporteData) : 0
             ];
             break;
     }
@@ -128,7 +224,7 @@ include '../../includes/sidebar.php';
                     <i class="fas fa-chart-line"></i>
                     Reportes y Estadísticas
                 </h1>
-                <p class="page-subtitle">Análisis y generación de reportes del departamento <?= htmlspecialchars($usuario['departamento'] ?? 'No especificado') ?></p>
+                <p class="page-subtitle">Análisis y generación de reportes del departamento <?= htmlspecialchars($departamento) ?></p>
             </div>
             <div class="header-actions">
                 <a href="../../dashboard/jefe_departamento.php" class="btn btn-secondary">
@@ -138,7 +234,7 @@ include '../../includes/sidebar.php';
                 <?php if ($reporteGenerado && !empty($reporteData)): ?>
                 <button type="button" class="btn btn-primary" onclick="exportToExcel()">
                     <i class="fas fa-download"></i>
-                    Exportar Excel
+                    Exportar CSV
                 </button>
                 <?php endif; ?>
             </div>
@@ -160,11 +256,11 @@ include '../../includes/sidebar.php';
                 </div>
                 <div class="report-type-content">
                     <h3>Estadísticas de Solicitudes</h3>
-                    <p>Análisis de solicitudes por fecha con estados de aprobación</p>
+                    <p>Análisis detallado de solicitudes por fecha con todos los estados</p>
                     <div class="report-type-features">
-                        <span><i class="fas fa-check"></i> Solicitudes por día</span>
-                        <span><i class="fas fa-check"></i> Estados de aprobación</span>
-                        <span><i class="fas fa-check"></i> Tendencias temporales</span>
+                        <span><i class="fas fa-check"></i> Todos los estados de solicitudes</span>
+                        <span><i class="fas fa-check"></i> Tiempo promedio de aprobación</span>
+                        <span><i class="fas fa-check"></i> Carreras y proyectos involucrados</span>
                     </div>
                 </div>
             </div>
@@ -176,11 +272,11 @@ include '../../includes/sidebar.php';
                 </div>
                 <div class="report-type-content">
                     <h3>Horas por Carrera</h3>
-                    <p>Análisis de horas de servicio social agrupadas por carrera</p>
+                    <p>Análisis completo de progreso y desempeño por carrera</p>
                     <div class="report-type-features">
-                        <span><i class="fas fa-check"></i> Horas por carrera</span>
-                        <span><i class="fas fa-check"></i> Estudiantes activos</span>
-                        <span><i class="fas fa-check"></i> Promedios de horas</span>
+                        <span><i class="fas fa-check"></i> Estadísticas de horas detalladas</span>
+                        <span><i class="fas fa-check"></i> Porcentaje de avance</span>
+                        <span><i class="fas fa-check"></i> Estudiantes activos vs concluidos</span>
                     </div>
                 </div>
             </div>
@@ -192,11 +288,27 @@ include '../../includes/sidebar.php';
                 </div>
                 <div class="report-type-content">
                     <h3>Desempeño por Laboratorio</h3>
-                    <p>Evaluación del rendimiento de cada laboratorio</p>
+                    <p>Evaluación completa del rendimiento y eficiencia</p>
                     <div class="report-type-features">
-                        <span><i class="fas fa-check"></i> Proyectos activos</span>
-                        <span><i class="fas fa-check"></i> Estudiantes asignados</span>
-                        <span><i class="fas fa-check"></i> Horas acumuladas</span>
+                        <span><i class="fas fa-check"></i> Métricas de eficiencia</span>
+                        <span><i class="fas fa-check"></i> Tasa de finalización</span>
+                        <span><i class="fas fa-check"></i> Proyectos y carreras atendidas</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="report-type-card <?= $tipoReporte === 'estudiantes' ? 'active' : '' ?>" 
+                 onclick="selectReportType('estudiantes')">
+                <div class="report-type-icon estudiantes">
+                    <i class="fas fa-user-graduate"></i>
+                </div>
+                <div class="report-type-content">
+                    <h3>Datos Completos de Estudiantes</h3>
+                    <p>Reporte detallado con información completa de cada estudiante</p>
+                    <div class="report-type-features">
+                        <span><i class="fas fa-check"></i> Datos personales y académicos</span>
+                        <span><i class="fas fa-check"></i> Progreso y tiempos</span>
+                        <span><i class="fas fa-check"></i> Información de contacto</span>
                     </div>
                 </div>
             </div>
@@ -264,24 +376,38 @@ include '../../includes/sidebar.php';
                             $summaryItems = [
                                 ['title' => 'Total Solicitudes', 'value' => $resumenData['total_solicitudes'], 'icon' => 'clipboard-list', 'color' => 'primary'],
                                 ['title' => 'Aprobadas', 'value' => $resumenData['total_aprobadas'], 'icon' => 'check-circle', 'color' => 'success'],
-                                ['title' => 'Rechazadas', 'value' => $resumenData['total_rechazadas'], 'icon' => 'times-circle', 'color' => 'error'],
-                                ['title' => 'Pendientes', 'value' => $resumenData['total_pendientes'], 'icon' => 'clock', 'color' => 'warning']
+                                ['title' => 'En Proceso', 'value' => $resumenData['total_en_proceso'], 'icon' => 'spinner', 'color' => 'info'],
+                                ['title' => 'Concluidas', 'value' => $resumenData['total_concluidas'], 'icon' => 'flag-checkered', 'color' => 'success'],
+                                ['title' => 'Pendientes', 'value' => $resumenData['total_pendientes'], 'icon' => 'clock', 'color' => 'warning'],
+                                ['title' => 'Días Prom. Aprobación', 'value' => number_format($resumenData['dias_promedio_aprobacion'], 1), 'icon' => 'calendar-day', 'color' => 'secondary']
                             ];
                             break;
                         case 'horas':
                             $summaryItems = [
                                 ['title' => 'Total Estudiantes', 'value' => $resumenData['total_estudiantes'], 'icon' => 'user-graduate', 'color' => 'primary'],
                                 ['title' => 'Total Horas', 'value' => number_format($resumenData['total_horas']), 'icon' => 'clock', 'color' => 'success'],
-                                ['title' => 'Promedio General', 'value' => number_format($resumenData['promedio_general'], 1), 'icon' => 'chart-bar', 'color' => 'info'],
-                                ['title' => 'Carreras Activas', 'value' => count($reporteData), 'icon' => 'graduation-cap', 'color' => 'secondary']
+                                ['title' => 'Promedio Horas', 'value' => number_format($resumenData['promedio_general'], 1), 'icon' => 'chart-bar', 'color' => 'info'],
+                                ['title' => 'Estudiantes Completos', 'value' => $resumenData['estudiantes_completos'], 'icon' => 'award', 'color' => 'success'],
+                                ['title' => 'Avance Promedio', 'value' => number_format($resumenData['porcentaje_avance_global'], 1) . '%', 'icon' => 'percentage', 'color' => 'secondary']
                             ];
                             break;
                         case 'laboratorios':
                             $summaryItems = [
                                 ['title' => 'Total Laboratorios', 'value' => $resumenData['total_laboratorios'], 'icon' => 'flask', 'color' => 'primary'],
                                 ['title' => 'Total Proyectos', 'value' => $resumenData['total_proyectos'], 'icon' => 'project-diagram', 'color' => 'secondary'],
-                                ['title' => 'Total Estudiantes', 'value' => $resumenData['total_estudiantes'], 'icon' => 'users', 'color' => 'success'],
-                                ['title' => 'Total Horas', 'value' => number_format($resumenData['total_horas']), 'icon' => 'clock', 'color' => 'info']
+                                ['title' => 'Total Estudiantes', 'value' => $resumenData['total_estudiantes'], 'icon' => 'users', 'color' => 'info'],
+                                ['title' => 'Total Horas', 'value' => number_format($resumenData['total_horas']), 'icon' => 'clock', 'color' => 'success'],
+                                ['title' => 'Estudiantes Completos', 'value' => $resumenData['estudiantes_completos'], 'icon' => 'award', 'color' => 'success'],
+                                ['title' => 'Tasa Finalización', 'value' => number_format($resumenData['tasa_finalizacion_promedio'], 1) . '%', 'icon' => 'percentage', 'color' => 'primary']
+                            ];
+                            break;
+                        case 'estudiantes':
+                            $summaryItems = [
+                                ['title' => 'Total Estudiantes', 'value' => $resumenData['total_estudiantes'], 'icon' => 'user-graduate', 'color' => 'primary'],
+                                ['title' => 'Total Horas', 'value' => number_format($resumenData['total_horas']), 'icon' => 'clock', 'color' => 'success'],
+                                ['title' => 'Promedio Horas', 'value' => number_format($resumenData['promedio_horas'], 1), 'icon' => 'chart-line', 'color' => 'info'],
+                                ['title' => 'Carreras', 'value' => $resumenData['carreras_unicas'], 'icon' => 'graduation-cap', 'color' => 'secondary'],
+                                ['title' => 'Avance Promedio', 'value' => number_format($resumenData['porcentaje_avance_promedio'], 1) . '%', 'icon' => 'percentage', 'color' => 'primary']
                             ];
                             break;
                     }
@@ -300,7 +426,8 @@ include '../../includes/sidebar.php';
                 </div>
             </div>
 
-            <!-- Chart Visualization -->
+            <!-- Chart Visualization (solo para reportes que no sean estudiantes) -->
+            <?php if ($tipoReporte !== 'estudiantes'): ?>
             <div class="chart-section">
                 <h2 class="section-title">
                     <i class="fas fa-chart-area"></i>
@@ -311,6 +438,7 @@ include '../../includes/sidebar.php';
                     <canvas id="reportChart" width="400" height="200"></canvas>
                 </div>
             </div>
+            <?php endif; ?>
 
             <!-- Data Table -->
             <div class="table-section">
@@ -325,8 +453,8 @@ include '../../includes/sidebar.php';
                             Expandir Tabla
                         </button>
                         <button class="btn btn-primary btn-sm" onclick="exportToExcel()">
-                            <i class="fas fa-file-excel"></i>
-                            Exportar
+                            <i class="fas fa-file-csv"></i>
+                            Exportar CSV
                         </button>
                     </div>
                 </div>
@@ -339,67 +467,201 @@ include '../../includes/sidebar.php';
                                 $headers = [];
                                 switch ($tipoReporte) {
                                     case 'estadisticas':
-                                        $headers = ['Fecha', 'Total Solicitudes', 'Aprobadas', 'Rechazadas', 'Pendientes'];
+                                        $headers = [
+                                            'Fecha',
+                                            'Total Solicitudes',
+                                            'Aprobadas',
+                                            'Rechazadas',
+                                            'Pendientes',
+                                            'En Proceso',
+                                            'Concluidas',
+                                            'Canceladas',
+                                            'Estudiantes Únicos',
+                                            'Proyectos Únicos',
+                                            'Días Prom. Aprobación',
+                                            'Carreras Involucradas',
+                                            'Proyectos Involucrados'
+                                        ];
                                         break;
                                     case 'horas':
-                                        $headers = ['Carrera', 'Total Estudiantes', 'Horas Totales', 'Horas Promedio'];
+                                        $headers = [
+                                            'Carrera',
+                                            'Total Estudiantes',
+                                            'Horas Totales',
+                                            'Horas Promedio',
+                                            'Horas Mínimas',
+                                            'Horas Máximas',
+                                            'Estudiantes Activos',
+                                            'Estudiantes Concluidos',
+                                            'Estudiantes Completos (500h)',
+                                            '% Avance Promedio',
+                                            'Días Prom. Transcurridos',
+                                            'Proyectos Asignados'
+                                        ];
                                         break;
                                     case 'laboratorios':
-                                        $headers = ['Laboratorio', 'Jefe de Laboratorio', 'Total Proyectos', 'Total Estudiantes', 'Horas Totales'];
+                                        $headers = [
+                                            'Laboratorio',
+                                            'Jefe de Laboratorio',
+                                            'Email',
+                                            'Teléfono',
+                                            'Especialidad',
+                                            'Total Proyectos',
+                                            'Total Estudiantes',
+                                            'Horas Totales',
+                                            'Horas Prom/Estudiante',
+                                            'Estudiantes Activos',
+                                            'Estudiantes Concluidos',
+                                            'Estudiantes Completos',
+                                            '% Avance Promedio',
+                                            'Tasa Finalización',
+                                            'Días Prom. Aprobación',
+                                            'Carreras Atendidas',
+                                            'Proyectos Activos'
+                                        ];
+                                        break;
+                                    case 'estudiantes':
+                                        $headers = [
+                                            'No. Control',
+                                            'Nombre Completo',
+                                            'Carrera',
+                                            'Semestre',
+                                            'Teléfono',
+                                            'Email',
+                                            'Horas Completadas',
+                                            '% Avance',
+                                            'Estado Servicio',
+                                            'Fecha Solicitud',
+                                            'Fecha Aprobación',
+                                            'Fecha Inicio',
+                                            'Fecha Fin',
+                                            'Días Transcurridos',
+                                            'Días Restantes',
+                                            'Proyecto',
+                                            'Descripción Proyecto',
+                                            'Laboratorio',
+                                            'Jefe Laboratorio',
+                                            'Email Laboratorio',
+                                            'Tel. Laboratorio'
+                                        ];
                                         break;
                                 }
                                 
-                                foreach ($headers as $header) {
-                                    echo "<th>$header</th>";
-                                }
-                                ?>
+                                foreach ($headers as $header): ?>
+                                    <th><?= $header ?></th>
+                                <?php endforeach; ?>
                             </tr>
                         </thead>
                         <tbody>
-                            <?php
-                            foreach ($reporteData as $fila) {
-                                echo "<tr>";
+                            <?php foreach ($reporteData as $row): ?>
+                            <tr>
+                                <?php
                                 switch ($tipoReporte) {
                                     case 'estadisticas':
-                                        echo "<td>" . formatDate($fila['fecha']) . "</td>";
-                                        echo "<td><span class='badge badge-primary'>{$fila['total_solicitudes']}</span></td>";
-                                        echo "<td><span class='badge badge-success'>{$fila['aprobadas']}</span></td>";
-                                        echo "<td><span class='badge badge-error'>{$fila['rechazadas']}</span></td>";
-                                        echo "<td><span class='badge badge-warning'>{$fila['pendientes']}</span></td>";
+                                        echo '<td>' . date('d/m/Y', strtotime($row['fecha'])) . '</td>';
+                                        echo '<td class="font-weight-bold">' . $row['total_solicitudes'] . '</td>';
+                                        echo '<td><span class="badge badge-success">' . $row['aprobadas'] . '</span></td>';
+                                        echo '<td><span class="badge badge-error">' . $row['rechazadas'] . '</span></td>';
+                                        echo '<td><span class="badge badge-warning">' . $row['pendientes'] . '</span></td>';
+                                        echo '<td><span class="badge badge-info">' . $row['en_proceso'] . '</span></td>';
+                                        echo '<td><span class="badge badge-success">' . $row['concluidas'] . '</span></td>';
+                                        echo '<td><span class="badge badge-secondary">' . $row['canceladas'] . '</span></td>';
+                                        echo '<td>' . $row['estudiantes_unicos'] . '</td>';
+                                        echo '<td>' . $row['proyectos_unicos'] . '</td>';
+                                        echo '<td>' . ($row['dias_promedio_aprobacion'] ? number_format($row['dias_promedio_aprobacion'], 1) : 'N/A') . '</td>';
+                                        echo '<td class="text-truncate" style="max-width: 200px;" title="' . htmlspecialchars($row['carreras']) . '">' . htmlspecialchars(substr($row['carreras'], 0, 50)) . (strlen($row['carreras']) > 50 ? '...' : '') . '</td>';
+                                        echo '<td class="text-truncate" style="max-width: 200px;" title="' . htmlspecialchars($row['proyectos']) . '">' . htmlspecialchars(substr($row['proyectos'], 0, 50)) . (strlen($row['proyectos']) > 50 ? '...' : '') . '</td>';
                                         break;
                                         
                                     case 'horas':
-                                        echo "<td class='font-weight-bold'>" . htmlspecialchars($fila['carrera']) . "</td>";
-                                        echo "<td><span class='badge badge-primary'>{$fila['total_estudiantes']}</span></td>";
-                                        echo "<td><span class='badge badge-success'>" . number_format($fila['horas_totales']) . "</span></td>";
-                                        echo "<td><span class='badge badge-info'>" . number_format($fila['horas_promedio'], 1) . "</span></td>";
+                                        echo '<td class="font-weight-bold">' . htmlspecialchars($row['carrera']) . '</td>';
+                                        echo '<td>' . $row['total_estudiantes'] . '</td>';
+                                        echo '<td>' . number_format($row['horas_totales']) . '</td>';
+                                        echo '<td>' . number_format($row['horas_promedio'], 1) . '</td>';
+                                        echo '<td>' . number_format($row['horas_minimas']) . '</td>';
+                                        echo '<td>' . number_format($row['horas_maximas']) . '</td>';
+                                        echo '<td><span class="badge badge-info">' . $row['estudiantes_activos'] . '</span></td>';
+                                        echo '<td><span class="badge badge-success">' . $row['estudiantes_concluidos'] . '</span></td>';
+                                        echo '<td><span class="badge badge-success">' . $row['estudiantes_completos'] . '</span></td>';
+                                        echo '<td>' . number_format($row['porcentaje_avance_promedio'], 2) . '%</td>';
+                                        echo '<td>' . ($row['dias_promedio_transcurridos'] ? number_format($row['dias_promedio_transcurridos'], 0) : 'N/A') . '</td>';
+                                        echo '<td class="text-truncate" style="max-width: 200px;" title="' . htmlspecialchars($row['proyectos_asignados']) . '">' . htmlspecialchars(substr($row['proyectos_asignados'], 0, 50)) . (strlen($row['proyectos_asignados']) > 50 ? '...' : '') . '</td>';
                                         break;
                                         
                                     case 'laboratorios':
-                                        echo "<td class='font-weight-bold'>" . htmlspecialchars($fila['laboratorio']) . "</td>";
-                                        echo "<td>" . htmlspecialchars($fila['jefe_laboratorio']) . "</td>";
-                                        echo "<td><span class='badge badge-secondary'>{$fila['total_proyectos']}</span></td>";
-                                        echo "<td><span class='badge badge-primary'>{$fila['total_estudiantes']}</span></td>";
-                                        echo "<td><span class='badge badge-success'>" . number_format($fila['horas_totales']) . "</span></td>";
+                                        echo '<td class="font-weight-bold">' . htmlspecialchars($row['laboratorio']) . '</td>';
+                                        echo '<td>' . htmlspecialchars($row['jefe_laboratorio']) . '</td>';
+                                        echo '<td>' . htmlspecialchars($row['email_laboratorio'] ?? 'N/A') . '</td>';
+                                        echo '<td>' . htmlspecialchars($row['telefono_laboratorio'] ?? 'N/A') . '</td>';
+                                        echo '<td>' . htmlspecialchars($row['especialidad'] ?? 'N/A') . '</td>';
+                                        echo '<td>' . $row['total_proyectos'] . '</td>';
+                                        echo '<td>' . $row['total_estudiantes'] . '</td>';
+                                        echo '<td>' . number_format($row['horas_totales']) . '</td>';
+                                        echo '<td>' . number_format($row['horas_promedio_estudiante'], 1) . '</td>';
+                                        echo '<td><span class="badge badge-info">' . $row['estudiantes_activos'] . '</span></td>';
+                                        echo '<td><span class="badge badge-success">' . $row['estudiantes_concluidos'] . '</span></td>';
+                                        echo '<td><span class="badge badge-success">' . $row['estudiantes_completos'] . '</span></td>';
+                                        echo '<td>' . number_format($row['porcentaje_avance_promedio'], 2) . '%</td>';
+                                        echo '<td>' . ($row['tasa_finalizacion'] ? number_format($row['tasa_finalizacion'], 2) . '%' : 'N/A') . '</td>';
+                                        echo '<td>' . ($row['dias_promedio_aprobacion'] ? number_format($row['dias_promedio_aprobacion'], 1) : 'N/A') . '</td>';
+                                        echo '<td class="text-truncate" style="max-width: 200px;" title="' . htmlspecialchars($row['carreras_atendidas']) . '">' . htmlspecialchars(substr($row['carreras_atendidas'], 0, 50)) . (strlen($row['carreras_atendidas']) > 50 ? '...' : '') . '</td>';
+                                        echo '<td class="text-truncate" style="max-width: 200px;" title="' . htmlspecialchars($row['proyectos_activos']) . '">' . htmlspecialchars(substr($row['proyectos_activos'], 0, 50)) . (strlen($row['proyectos_activos']) > 50 ? '...' : '') . '</td>';
+                                        break;
+                                        
+                                    case 'estudiantes':
+                                        $nombreCompleto = trim($row['nombre'] . ' ' . $row['apellido_paterno'] . ' ' . $row['apellido_materno']);
+                                        $estadoTexto = '';
+                                        switch($row['estado_servicio']) {
+                                            case 'pendiente': $estadoTexto = 'Pendiente'; break;
+                                            case 'aprobada': $estadoTexto = 'Aprobada'; break;
+                                            case 'en_proceso': $estadoTexto = 'En Proceso'; break;
+                                            case 'concluida': $estadoTexto = 'Concluida'; break;
+                                            case 'rechazada': $estadoTexto = 'Rechazada'; break;
+                                            case 'cancelada': $estadoTexto = 'Cancelada'; break;
+                                            default: $estadoTexto = $row['estado_servicio'];
+                                        }
+                                        
+                                        echo '<td>' . htmlspecialchars($row['numero_control']) . '</td>';
+                                        echo '<td class="font-weight-bold">' . htmlspecialchars($nombreCompleto) . '</td>';
+                                        echo '<td>' . htmlspecialchars($row['carrera']) . '</td>';
+                                        echo '<td>' . htmlspecialchars($row['semestre']) . '</td>';
+                                        echo '<td>' . htmlspecialchars($row['telefono'] ?? 'N/A') . '</td>';
+                                        echo '<td>' . htmlspecialchars($row['email']) . '</td>';
+                                        echo '<td>' . $row['horas_completadas'] . '</td>';
+                                        echo '<td>' . number_format($row['porcentaje_avance'], 2) . '%</td>';
+                                        echo '<td><span class="badge badge-info">' . $estadoTexto . '</span></td>';
+                                        echo '<td>' . date('d/m/Y', strtotime($row['fecha_solicitud'])) . '</td>';
+                                        echo '<td>' . ($row['fecha_aprobacion'] ? date('d/m/Y', strtotime($row['fecha_aprobacion'])) : 'N/A') . '</td>';
+                                        echo '<td>' . ($row['fecha_inicio_propuesta'] ? date('d/m/Y', strtotime($row['fecha_inicio_propuesta'])) : 'N/A') . '</td>';
+                                        echo '<td>' . ($row['fecha_fin_propuesta'] ? date('d/m/Y', strtotime($row['fecha_fin_propuesta'])) : 'N/A') . '</td>';
+                                        echo '<td>' . ($row['dias_transcurridos'] >= 0 ? $row['dias_transcurridos'] : 0) . '</td>';
+                                        echo '<td>' . ($row['dias_restantes'] >= 0 ? $row['dias_restantes'] : 0) . '</td>';
+                                        echo '<td>' . htmlspecialchars($row['nombre_proyecto'] ?? 'N/A') . '</td>';
+                                        echo '<td class="text-truncate" style="max-width: 200px;" title="' . htmlspecialchars($row['proyecto_descripcion']) . '">' . htmlspecialchars(substr($row['proyecto_descripcion'] ?? 'N/A', 0, 50)) . '</td>';
+                                        echo '<td>' . htmlspecialchars($row['laboratorio'] ?? 'N/A') . '</td>';
+                                        echo '<td>' . htmlspecialchars($row['jefe_laboratorio'] ?? 'N/A') . '</td>';
+                                        echo '<td>' . htmlspecialchars($row['email_laboratorio'] ?? 'N/A') . '</td>';
+                                        echo '<td>' . htmlspecialchars($row['telefono_laboratorio'] ?? 'N/A') . '</td>';
                                         break;
                                 }
-                                echo "</tr>";
-                            }
-                            ?>
+                                ?>
+                            </tr>
+                            <?php endforeach; ?>
                         </tbody>
                     </table>
                 </div>
             </div>
 
         <?php else: ?>
+            <!-- No Data -->
             <div class="no-data-section">
                 <div class="no-data-content">
                     <div class="no-data-icon">
-                        <i class="fas fa-chart-line"></i>
+                        <i class="fas fa-inbox"></i>
                     </div>
-                    <h3>No se encontraron datos</h3>
-                    <p>No hay información disponible para el período seleccionado.</p>
-                    <p>Intenta ajustar las fechas o verificar que existan registros en el sistema.</p>
+                    <h3>No hay datos disponibles</h3>
+                    <p>No se encontraron registros para el período seleccionado.</p>
+                    <p>Intenta ajustar los filtros de fecha o seleccionar otro tipo de reporte.</p>
                     <button class="btn btn-primary" onclick="adjustFilters()">
                         <i class="fas fa-filter"></i>
                         Ajustar Filtros
@@ -408,25 +670,27 @@ include '../../includes/sidebar.php';
             </div>
         <?php endif; ?>
     <?php else: ?>
+        <!-- Welcome State -->
         <div class="welcome-section">
             <div class="welcome-content">
                 <div class="welcome-icon">
-                    <i class="fas fa-rocket"></i>
+                    <i class="fas fa-chart-line"></i>
                 </div>
-                <h3>¡Comienza a Generar Reportes!</h3>
-                <p>Selecciona el tipo de reporte y las fechas para comenzar el análisis.</p>
+                <h3>Bienvenido al Sistema de Reportes</h3>
+                <p>Selecciona un tipo de reporte, configura los filtros de fecha y genera análisis detallados de tu departamento.</p>
+                
                 <div class="welcome-steps">
                     <div class="step">
                         <div class="step-number">1</div>
-                        <div class="step-text">Selecciona el tipo de reporte</div>
+                        <div class="step-text">Selecciona tipo de reporte</div>
                     </div>
                     <div class="step">
                         <div class="step-number">2</div>
-                        <div class="step-text">Configura las fechas</div>
+                        <div class="step-text">Configura fechas</div>
                     </div>
                     <div class="step">
                         <div class="step-number">3</div>
-                        <div class="step-text">Genera y analiza</div>
+                        <div class="step-text">Genera y exporta</div>
                     </div>
                 </div>
             </div>
@@ -436,66 +700,60 @@ include '../../includes/sidebar.php';
 </div>
 
 <style>
-    /* Variables sidebar */
-:root {
-    --sidebar-width: 280px;
-    --header-height: 70px;
-}
-
-/* Main wrapper con margen para sidebar */
-.main-wrapper {
-    margin-left: var(--sidebar-width);
-    min-height: calc(100vh - var(--header-height));
-    transition: margin-left 0.3s ease;
-}
-
-/* Dashboard container ajustado */
-.dashboard-container {
-    max-width: calc(1400px - var(--sidebar-width));
-    margin: 0 auto;
-    width: 100%;
-    box-sizing: border-box;
-}
-
-/* Responsive: En móvil sidebar se oculta */
-@media (max-width: 1024px) {
-    .main-wrapper {
-        margin-left: 0;
-    }
-    
-    .dashboard-container {
-        max-width: 1400px;
-    }
-}
-/* Variables CSS */
 :root {
     --primary: #6366f1;
     --primary-light: #818cf8;
+    --primary-dark: #4f46e5;
     --secondary: #8b5cf6;
     --success: #10b981;
     --warning: #f59e0b;
     --error: #ef4444;
     --info: #3b82f6;
-    --text-primary: #1f2937;
-    --text-secondary: #6b7280;
-    --text-light: #9ca3af;
+    
     --bg-white: #ffffff;
     --bg-light: #f9fafb;
     --bg-gray: #f3f4f6;
+    
+    --text-primary: #111827;
+    --text-secondary: #6b7280;
+    --text-light: #9ca3af;
+    
     --border: #e5e7eb;
     --border-light: #f3f4f6;
-    --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-    --radius: 0.5rem;
-    --radius-lg: 0.75rem;
+    
+    --radius: 8px;
+    --radius-lg: 12px;
+    
+    --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    
     --transition: all 0.3s ease;
+    
+    --sidebar-width: 280px;
 }
 
-/* Dashboard Container */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+    color: var(--text-primary);
+    line-height: 1.6;
+}
+
+.main-wrapper {
+    margin-left: var(--sidebar-width);
+    min-height: 100vh;
+    transition: margin-left 0.3s ease;
+}
+
 .dashboard-container {
-    padding: 1rem;
-    max-width: 1400px;
+    padding: 2rem;
+    max-width: 1600px;
     margin: 0 auto;
 }
 
@@ -570,7 +828,7 @@ include '../../includes/sidebar.php';
 
 .report-types-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 1.5rem;
 }
 
@@ -629,6 +887,10 @@ include '../../includes/sidebar.php';
 
 .report-type-icon.laboratorios {
     background: linear-gradient(135deg, var(--secondary), #a78bfa);
+}
+
+.report-type-icon.estudiantes {
+    background: linear-gradient(135deg, var(--primary), var(--primary-light));
 }
 
 .report-type-content h3 {
@@ -1098,7 +1360,7 @@ include '../../includes/sidebar.php';
 /* Responsive Design */
 @media (max-width: 1200px) {
     .report-types-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr);
     }
     
     .summary-grid {
@@ -1107,6 +1369,10 @@ include '../../includes/sidebar.php';
 }
 
 @media (max-width: 1024px) {
+    .main-wrapper {
+        margin-left: 0;
+    }
+    
     .header-content {
         flex-direction: column;
         align-items: flex-start;
@@ -1131,6 +1397,10 @@ include '../../includes/sidebar.php';
     .table-actions {
         width: 100%;
         justify-content: flex-start;
+    }
+    
+    .report-types-grid {
+        grid-template-columns: 1fr;
     }
 }
 
@@ -1223,8 +1493,8 @@ include '../../includes/sidebar.php';
 let reportChart = null;
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize chart if data exists
-    <?php if ($reporteGenerado && !empty($reporteData)): ?>
+    // Initialize chart if data exists (except for estudiantes report)
+    <?php if ($reporteGenerado && !empty($reporteData) && $tipoReporte !== 'estudiantes'): ?>
     initializeChart();
     <?php endif; ?>
     
@@ -1456,7 +1726,11 @@ function exportToExcel() {
     for (let i = 1; i < table.rows.length; i++) {
         const row = [];
         for (let j = 0; j < table.rows[i].cells.length; j++) {
-            row.push('"' + table.rows[i].cells[j].textContent.trim() + '"');
+            // Limpiar el texto de badges y otros elementos HTML
+            let cellText = table.rows[i].cells[j].textContent.trim();
+            // Reemplazar comillas dobles por comillas simples para evitar problemas en CSV
+            cellText = cellText.replace(/"/g, "'");
+            row.push('"' + cellText + '"');
         }
         csv.push(row.join(','));
     }

@@ -351,16 +351,50 @@ body {
     box-shadow: var(--shadow);
 }
 
-/* Table Container */
+/* ========================================
+   DESLIZADOR HORIZONTAL PARA LA TABLA
+   ======================================== */
+
+/* Table Container - ACTUALIZADO CON DESLIZADOR */
 .table-responsive {
     background: var(--white);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
-    overflow: hidden;
+    overflow-x: auto; /* Permite desplazamiento horizontal */
+    overflow-y: visible;
     margin-bottom: 2rem;
     border: 1px solid var(--gray-200);
     animation: fadeInUp 0.6s ease-out 0.6s both;
+    position: relative;
 }
+
+/* Estilos personalizados para la barra de desplazamiento */
+.table-responsive::-webkit-scrollbar {
+    height: 12px;
+}
+
+.table-responsive::-webkit-scrollbar-track {
+    background: var(--gray-100);
+    border-radius: 0 0 var(--radius) var(--radius);
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+    background: var(--primary-color);
+    border-radius: 6px;
+    border: 2px solid var(--gray-100);
+}
+
+.table-responsive::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-dark);
+}
+
+/* Para Firefox */
+.table-responsive {
+    scrollbar-width: thin;
+    scrollbar-color: var(--primary-color) var(--gray-100);
+}
+
+/* ======================================== */
 
 /* Table Header */
 .table-header {
@@ -389,6 +423,7 @@ body {
 
 .data-table {
     width: 100%;
+    min-width: 1200px; /* Ancho mínimo para activar el deslizador */
     border-collapse: collapse;
     background: var(--white);
 }
@@ -403,8 +438,7 @@ body {
     font-size: 0.875rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    position: sticky;
-    top: 0;
+    white-space: nowrap; /* Evita que el texto se divida en múltiples líneas */
 }
 
 .data-table td {
@@ -412,6 +446,7 @@ body {
     border-bottom: 1px solid var(--gray-200);
     color: var(--gray-700);
     vertical-align: middle;
+    white-space: nowrap; /* Evita que el contenido se divida */
 }
 
 .data-table tbody tr {
@@ -441,6 +476,7 @@ body {
     color: var(--white);
     font-weight: 600;
     font-size: 0.875rem;
+    flex-shrink: 0; /* Evita que el avatar se comprima */
 }
 
 .student-info h4 {
@@ -448,12 +484,14 @@ body {
     font-weight: 600;
     color: var(--gray-800);
     margin: 0 0 0.125rem 0;
+    white-space: nowrap;
 }
 
 .student-info p {
     font-size: 0.8rem;
     color: var(--gray-500);
     margin: 0;
+    white-space: nowrap;
 }
 
 /* Progress Bar */
@@ -469,6 +507,7 @@ body {
     background: var(--gray-200);
     border-radius: 4px;
     overflow: hidden;
+    flex-shrink: 0;
 }
 
 .progress-fill {
@@ -482,6 +521,7 @@ body {
     font-size: 0.75rem;
     font-weight: 600;
     color: var(--gray-600);
+    white-space: nowrap;
 }
 
 /* Badges */
@@ -495,6 +535,7 @@ body {
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    white-space: nowrap;
 }
 
 .badge::before {
