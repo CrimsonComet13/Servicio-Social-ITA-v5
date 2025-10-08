@@ -10,20 +10,24 @@ $db = Database::getInstance();
 $usuario = $session->getUser();
 $usuarioId = $usuario['id'];
 
-// ✅ OBTENER CORRECTAMENTE EL ID DEL JEFE DE LABORATORIO
+// ✅ SOLUCIÓN CORRECTA con parámetros nombrados
 $jefeLab = $db->fetch("
-    SELECT jl.*, u.email 
+    SELECT jl.id, jl.nombre, jl.laboratorio, jl.especialidad, jl.telefono, jl.extension
     FROM jefes_laboratorio jl
-    JOIN usuarios u ON jl.usuario_id = u.id
-    WHERE jl.usuario_id = ?
-", [$usuarioId]);
+    WHERE jl.usuario_id = :usuario_id
+    AND jl.activo = 1
+", ['usuario_id' => $usuarioId]);
 
 if (!$jefeLab) {
-    flashMessage('Error: Perfil de jefe de laboratorio no encontrado', 'error');
-    redirectTo('/dashboard/laboratorio.php');
+    flashMessage('Error: No se encontró tu perfil de jefe de laboratorio', 'error');
+    redirectTo('/dashboard/jefe_laboratorio.php');
+    exit;
 }
 
-$jefeLabId = $jefeLab['id']; // Este es el ID correcto de la tabla jefes_laboratorio
+$jefeLabId = $jefeLab['id']; // Será 1
+$nombreLaboratorio = $jefeLab['laboratorio']; // Será "Laboratorio de Redes"
+
+// 🎯 A partir de aquí usa $jefeLabId en todas las consultas
 
 // Obtener estudiantes activos en el laboratorio
 $estado = $_GET['estado'] ?? 'activos';

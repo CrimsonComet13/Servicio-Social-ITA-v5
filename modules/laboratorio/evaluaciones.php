@@ -8,14 +8,26 @@ $session->requireRole('jefe_laboratorio');
 
 $db = Database::getInstance();
 $usuario = $session->getUser();
+$usuarioId = $usuario['id'];
 
-// ✅ Obtener datos del jefe de laboratorio
-$jefeLab = $db->fetch("SELECT id, nombre, laboratorio FROM jefes_laboratorio WHERE usuario_id = ?", [$usuario['id']]);
+// ✅ SOLUCIÓN CORRECTA con parámetros nombrados
+$jefeLab = $db->fetch("
+    SELECT jl.id, jl.nombre, jl.laboratorio, jl.especialidad, jl.telefono, jl.extension
+    FROM jefes_laboratorio jl
+    WHERE jl.usuario_id = :usuario_id
+    AND jl.activo = 1
+", ['usuario_id' => $usuarioId]);
+
 if (!$jefeLab) {
-    flashMessage('No se encontró el perfil de jefe de laboratorio', 'error');
+    flashMessage('Error: No se encontró tu perfil de jefe de laboratorio', 'error');
     redirectTo('/dashboard/jefe_laboratorio.php');
+    exit;
 }
-$jefeLabId = $jefeLab['id'];
+
+$jefeLabId = $jefeLab['id']; // Será 1
+$nombreLaboratorio = $jefeLab['laboratorio']; // Será "Laboratorio de Redes"
+
+// 🎯 A partir de aquí usa $jefeLabId en todas las consultas
 
 // Filtros
 $estado = $_GET['estado'] ?? 'activos';
