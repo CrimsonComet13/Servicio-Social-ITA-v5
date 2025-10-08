@@ -664,9 +664,9 @@ include '../../includes/sidebar.php';
 
 /* Variables CSS */
 :root {
-    --primary: #4caf50;
-    --primary-light: #66bb6a;
-    --secondary: #2196f3;
+    --primary: #6366f1;
+    --primary-light: #818cf8;
+    --secondary: #8b5cf6;
     --success: #10b981;
     --warning: #f59e0b;
     --error: #ef4444;

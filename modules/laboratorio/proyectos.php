@@ -29,6 +29,7 @@ $nombreLaboratorio = $jefeLab['laboratorio']; // Será "Laboratorio de Redes"
 
 // 🎯 A partir de aquí usa $jefeLabId en todas las consultas
 
+
 // Procesar acciones (activar/desactivar proyectos)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $proyectoId = $_POST['proyecto_id'] ?? null;
@@ -425,9 +426,9 @@ include '../../includes/sidebar.php';
 
 /* Variables CSS */
 :root {
-    --primary: #4caf50;
-    --primary-light: #66bb6a;
-    --secondary: #2196f3;
+    --primary: #6366f1;
+    --primary-light: #818cf8;
+    --secondary: #8b5cf6;
     --success: #10b981;
     --warning: #f59e0b;
     --error: #ef4444;
