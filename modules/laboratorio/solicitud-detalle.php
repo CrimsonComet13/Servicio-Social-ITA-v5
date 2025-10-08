@@ -352,7 +352,7 @@ include '../../includes/sidebar.php';
                                 <h3 class="project-name-large"><?= htmlspecialchars($solicitud['nombre_proyecto']) ?></h3>
                                 <p class="project-meta-large">
                                     <span><i class="fas fa-flask"></i> <?= htmlspecialchars($solicitud['laboratorio_asignado']) ?></span>
-                                    <span><i class="fas fa-book"></i> <?= htmlspecialchars($solicitud['area_conocimiento']) ?></span>
+                                    <span><i class="fas fa-book"></i> <?= htmlspecialchars($solicitud['area_conocimiento'] ?? '') ?></span>
                                 </p>
                             </div>
                         </div>
@@ -409,7 +409,7 @@ include '../../includes/sidebar.php';
                                     <i class="fas fa-calendar-alt"></i>
                                     Horario
                                 </div>
-                                <div class="info-value"><?= htmlspecialchars($solicitud['horario']) ?></div>
+                                <div class="info-value"><?= htmlspecialchars($solicitud['horario'] ?? '') ?></div>
                             </div>
                             <?php endif; ?>
                         </div>
