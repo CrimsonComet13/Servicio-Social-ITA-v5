@@ -1,7 +1,7 @@
 <?php
-require_once 'config/config.php';
-require_once 'config/session.php';
-require_once 'config/functions.php';
+require_once '../config/config.php';
+require_once '../config/session.php';
+require_once '../config/functions.php';
 
 $session = SecureSession::getInstance();
 
@@ -30,9 +30,9 @@ if ($isLoggedIn) {
 }
 
 $pageTitle = "Centro de Ayuda - " . APP_NAME;
-include 'includes/header.php';
+include '../includes/header.php';
 if ($isLoggedIn) {
-    include 'includes/sidebar.php';
+    include '../includes/sidebar.php';
 }
 ?>
 
@@ -1565,4 +1565,4 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-<?php include 'includes/footer.php'; ?>
+<?php include '../includes/footer.php'; ?>

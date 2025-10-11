@@ -64,10 +64,26 @@ function getSafeUserEmail($usuario) {
                 <div class="footer-section">
                     <h5>Enlaces</h5>
                     <nav class="footer-nav">
-                        <a href="../dashboard/<?= $session->getUserRole() ?>.php">Dashboard</a>
-                        <a href="../modules/<?= $session->getUserRole() ?>/perfil.php">Mi Perfil</a>
-                        <a href="../help.php">Ayuda</a>
-                        <a href="../contacto.php">Contacto</a>
+                        <?php if ($session->getUserRole() === 'estudiante'): ?>
+                            <a href="../dashboard/estudiante.php">Mi Dashboard</a>
+                            <a href="../modules/estudiante/solicitudes.php">Mis Solicitudes</a>
+                            <a href="../modules/estudiante/reportes.php">Mis Reportes</a>
+                            <a href="../modules/estudiante/perfil.php">Mi Perfil</a>
+                        <?php elseif ($session->getUserRole() === 'jefe_departamento'): ?>
+                            <a href="../dashboard/jefe_departamento.php">Dashboard Jefe Depto.</a>
+                            <a href="../modules/departamento/proyectos.php">Gestionar Proyectos</a>
+                            <a href="../modules/departamento/solicitudes.php">Revisar Solicitudes</a>
+                            <a href="../modules/departamento/perfil.php">Mi Perfil</a>
+                        <?php elseif ($session->getUserRole() === 'jefe_laboratorio'): ?>
+                            <a href="../dashboard/jefe_laboratorio.php">Dashboard Jefe Lab.</a>
+                            <a href="../modules/laboratorio/mis_proyectos.php">Mis Proyectos</a>
+                            <a href="../modules/laboratorio/evaluaciones.php">Evaluar Reportes</a>
+                            <a href="../modules/laboratorio/perfil.php">Mi Perfil</a>
+                        <?php else: ?>
+                            <a href="../dashboard/index.php">Dashboard</a>
+                            <a href="../help.php">Ayuda</a>
+                            <a href="../contacto.php">Contacto</a>
+                        <?php endif; ?>
                     </nav>
                 </div>
                 
@@ -75,7 +91,6 @@ function getSafeUserEmail($usuario) {
                     <h5>Soporte</h5>
                     <nav class="footer-nav">
                         <a href="../docs/manual-usuario.pdf" target="_blank">Manual</a>
-                        <a href="../help/faq.php">FAQ</a>
                         <a href="mailto:soporte@ita.mx">Soporte</a>
                         <a href="../help/tutoriales.php">Tutoriales</a>
                     </nav>
