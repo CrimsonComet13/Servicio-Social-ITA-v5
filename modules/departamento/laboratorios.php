@@ -111,11 +111,11 @@ include '../../includes/sidebar.php';
                 <p class="page-subtitle">Administración y supervisión de jefes de laboratorio del departamento</p>
             </div>
             <div class="header-actions">
-                <a href="../../dashboard/jefe_departamento.php" class="btn btn-secondary">
+                <a href="../../dashboard/jezfe_departamento.php" class="btn btn-secondary">
                     <i class="fas fa-arrow-left"></i>
                     Volver al Dashboard
                 </a>
-                <a href="../../departamento/register-jefe.php" class="btn btn-primary">
+                <a href="/servicio_social_ita/modules/departamento/register-jefe.php" class="btn btn-primary">
                     <i class="fas fa-plus"></i>
                     Invitar Jefe
                 </a>

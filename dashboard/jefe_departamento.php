@@ -27,7 +27,7 @@ $jefeId = $jefeDepto['id'];
 $nombreUsuario = !empty($jefeDepto['nombre']) ? $jefeDepto['nombre'] : 'Usuario';
 $departamentoUsuario = !empty($jefeDepto['departamento']) ? $jefeDepto['departamento'] : 'Sin Departamento';
 
-// Obtener estadísticas del departamento - ACTUALIZADO CON PROYECTOS
+// Obtener estadísticas del departamento - ACTUALIZADO CON PROYECTOS Y EVALUACIONES
 $stats = $db->fetch("
     SELECT 
         COUNT(DISTINCT s.id) as total_solicitudes,
@@ -45,6 +45,27 @@ $stats = $db->fetch("
     LEFT JOIN proyectos_laboratorio p ON jd.id = p.jefe_departamento_id
     WHERE jd.id = :jefe_id
 ", ['jefe_id' => $jefeId]);
+
+// Obtener estadísticas de evaluaciones pendientes
+// Dos consultas separadas, cada una con su propio parámetro
+$bimestralesPendientes = $db->fetch("
+    SELECT COUNT(*) as total
+    FROM reportes_bimestrales rb
+    JOIN solicitudes_servicio s ON rb.solicitud_id = s.id
+    WHERE s.jefe_departamento_id = :jefe_id 
+    AND rb.estado IN ('pendiente_evaluacion', 'revision')
+", ['jefe_id' => $jefeId]); // ✅ Un parámetro por consulta
+
+$finalesPendientes = $db->fetch("
+    SELECT COUNT(*) as total
+    FROM reportes_finales rf
+    JOIN solicitudes_servicio s ON rf.solicitud_id = s.id
+    WHERE s.jefe_departamento_id = :jefe_id 
+    AND rf.estado IN ('pendiente_evaluacion', 'revision')
+", ['jefe_id' => $jefeId]); // ✅ Un parámetro por consulta
+
+$evaluacionesPendientes = ($bimestralesPendientes['total'] ?? 0) + ($finalesPendientes['total'] ?? 0);
+
 
 // Verificar que las estadísticas se obtuvieron correctamente
 if (!$stats) {
@@ -254,6 +275,29 @@ include '../includes/sidebar.php';
                 </div>
             </div>
         </div>
+
+        <!-- Nueva tarjeta para evaluaciones pendientes -->
+        <div class="stat-card evaluaciones">
+            <div class="stat-icon">
+                <i class="fas fa-star"></i>
+            </div>
+            <div class="stat-content">
+                <h3 class="stat-title">Evaluaciones Pendientes</h3>
+                <div class="stat-number"><?= $evaluacionesPendientes ?? 0 ?></div>
+                <p class="stat-description">Reportes por evaluar</p>
+                <?php if ($evaluacionesPendientes > 0): ?>
+                <div class="stat-alert">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <span>Requiere atención</span>
+                </div>
+                <?php else: ?>
+                <div class="stat-trend">
+                    <i class="fas fa-check-circle"></i>
+                    <span>Al día</span>
+                </div>
+                <?php endif; ?>
+            </div>
+        </div>
     </div>
 
     <!-- Main Content Area -->
@@ -376,6 +420,9 @@ include '../includes/sidebar.php';
                                 </div>
                             </div>
                             <div class="student-actions">
+                                <a href="../modules/departamento/estudiante-historial.php?id=<?= $estudiante['id'] ?>" class="btn btn-secondary btn-sm">
+                                    <i class="fas fa-history"></i> Historial
+                                </a>
                                 <a href="../modules/departamento/estudiante-detalle.php?id=<?= $estudiante['id'] ?>" class="btn btn-primary btn-sm">
                                     <i class="fas fa-eye"></i> Ver Detalle
                                 </a>
@@ -543,6 +590,19 @@ include '../includes/sidebar.php';
                             </div>
                             <div class="action-badge">
                                 <?= $stats['total_laboratorios'] ?? 0 ?>
+                            </div>
+                        </a>
+
+                        <a href="../modules/departamento/evaluaciones.php" class="action-card">
+                            <div class="action-icon evaluaciones">
+                                <i class="fas fa-star"></i>
+                            </div>
+                            <div class="action-text">
+                                <span>Evaluaciones</span>
+                                <small>Evaluar reportes</small>
+                            </div>
+                            <div class="action-badge">
+                                <?= $evaluacionesPendientes ?? 0 ?>
                             </div>
                         </a>
 
@@ -757,6 +817,15 @@ include '../includes/sidebar.php';
 
 .stat-card.proyectos .stat-icon {
     background: linear-gradient(135deg, #8b5cf6, #a78bfa);
+}
+
+/* Estilos específicos para evaluaciones */
+.stat-card.evaluaciones {
+    --gradient-color: #f59e0b;
+}
+
+.stat-card.evaluaciones .stat-icon {
+    background: linear-gradient(135deg, #f59e0b, #fbbf24);
 }
 
 .stat-icon {
@@ -1249,6 +1318,10 @@ include '../includes/sidebar.php';
 
 .action-icon.proyectos {
     background: linear-gradient(135deg, #8b5cf6, #a78bfa);
+}
+
+.action-icon.evaluaciones {
+    background: linear-gradient(135deg, #f59e0b, #fbbf24);
 }
 
 .action-text {

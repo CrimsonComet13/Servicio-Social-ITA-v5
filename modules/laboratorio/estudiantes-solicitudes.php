@@ -447,12 +447,7 @@ include '../../includes/sidebar.php';
                                    class="btn btn-primary btn-sm">
                                     <i class="fas fa-eye"></i> Ver Detalle
                                 </a>
-                                <?php if ($solicitud['estado'] === 'en_proceso'): ?>
-                                <a href="estudiante-detalle.php?estudiante_id=<?= $solicitud['estudiante_id'] ?>" 
-                                   class="btn btn-secondary btn-sm">
-                                    <i class="fas fa-user"></i> Ver Estudiante
-                                </a>
-                                <?php endif; ?>
+                                
                             <?php endif; ?>
                         </div>
 

@@ -380,12 +380,12 @@ include '../../includes/sidebar.php';
                                 </td>
                                 <td>
                                     <div class="action-buttons">
-                                        <a href="/modules/departamento/estudiante-detalle.php?id=<?= $estudiante['estudiante_id'] ?>" 
+                                        <a href="/servicio_social_ita/modules/departamento/estudiante-detalle.php?id=<?= $estudiante['estudiante_id'] ?>" 
                                            class="btn btn-sm btn-info" title="Ver detalles">
                                             <i class="fas fa-eye"></i>
                                         </a>
                                         <?php if ($estudiante['estado'] === 'pendiente'): ?>
-                                            <a href="/modules/departamento/solicitud-detalle.php?id=<?= $estudiante['id'] ?>" 
+                                            <a href="/servicio_social_ita//modules/departamento/solicitud-detalle.php?id=<?= $estudiante['id'] ?>" 
                                                class="btn btn-sm btn-warning" title="Revisar solicitud">
                                                 <i class="fas fa-clipboard-check"></i>
                                             </a>

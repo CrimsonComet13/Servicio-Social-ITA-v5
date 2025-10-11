@@ -120,6 +120,12 @@ $menusByRole = [
             'badge' => null
         ],
         [
+            'label' => 'Evaluaciones',
+            'icon' => 'fas fa-star',
+            'url' => BASE_URL . 'modules/departamento/evaluaciones.php',
+            'badge' => null
+        ],
+        [
             'label' => 'Configuración',
             'icon' => 'fas fa-cog',
             'url' => BASE_URL . 'modules/departamento/configuracion.php',
