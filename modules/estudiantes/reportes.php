@@ -34,16 +34,62 @@ if ($solicitudActiva) {
     ", ['estudiante_id' => $estudianteId]);
 }
 
-// Determinar el próximo reporte a entregar
-$proximoReporte = 1;
-if (!empty($reportes)) {
-    $ultimoReporte = end($reportes);
-    $proximoReporte = $ultimoReporte['numero_reporte'] + 1;
-    
-    // Si ya se entregaron los 3 reportes, no hay próximo
-    if ($proximoReporte > 3) {
-        $proximoReporte = null;
+// Lógica para determinar el próximo reporte a entregar
+$reportesEntregados = 0;
+if ($solicitudActiva) {
+    $reportesEntregados = $db->fetch("SELECT COUNT(id) as total FROM reportes_bimestrales WHERE solicitud_id = :solicitud_id AND estado IN ('entregado', 'evaluado')", ['solicitud_id' => $solicitudActiva['id']])['total'];
+}
+$proximoReporte = $reportesEntregados + 1;
+
+if ($proximoReporte > 3) {
+    // Ya se entregaron los 3 reportes bimestrales.
+    $proximoReporte = null; // No hay más reportes bimestrales
+}
+
+$reportePendiente = null;
+if ($solicitudActiva) {
+    $reportePendiente = $db->fetch("SELECT * FROM reportes_bimestrales WHERE solicitud_id = :solicitud_id AND estado = 'pendiente_entrega'", ['solicitud_id' => $solicitudActiva['id']]);
+}
+
+// --- NUEVA LÓGICA DE CREACIÓN AUTOMÁTICA DE REPORTE ---
+if ($proximoReporte && !$reportePendiente && $solicitudActiva && $solicitudActiva['estado'] === 'en_proceso') {
+    // 1. Verificar si el registro ya existe (por si acaso)
+    $reporteExistente = $db->fetch("
+        SELECT id FROM reportes_bimestrales 
+        WHERE solicitud_id = :solicitud_id AND numero_reporte = :numero_reporte
+    ", [
+        'solicitud_id' => $solicitudActiva['id'], 
+        'numero_reporte' => $proximoReporte
+    ]);
+
+    if (!$reporteExistente) {
+        // 2. Si no existe, crear el nuevo registro de reporte
+        $db->insert('reportes_bimestrales', [
+            'estudiante_id' => $estudianteId,
+            'solicitud_id' => $solicitudActiva['id'],
+            'jefe_laboratorio_id' => $solicitudActiva['jefe_laboratorio_id'],
+            'numero_reporte' => $proximoReporte,
+            // Se usan fechas sugeridas, el estudiante las puede ajustar en el formulario
+            'periodo_inicio' => date('Y-m-d'), 
+            'periodo_fin' => date('Y-m-d', strtotime('+2 months')), 
+            'estado' => 'pendiente_entrega',
+            'estado_evaluacion_estudiante' => 'pendiente', // Para que aparezca en el formulario de entrega
+            'fecha_creacion' => date('Y-m-d H:i:s')
+        ]);
+        
+        // Actualizar $reportePendiente con el recién creado para forzar la redirección
+        $reportePendiente = $db->fetch("SELECT * FROM reportes_bimestrales WHERE solicitud_id = :solicitud_id AND numero_reporte = :numero_reporte", [
+            'solicitud_id' => $solicitudActiva['id'], 
+            'numero_reporte' => $proximoReporte
+        ]);
     }
+}
+// --- FIN NUEVA LÓGICA ---
+
+// Redireccionar al formulario de entrega si hay un reporte pendiente
+if ($reportePendiente) {
+    header("Location: entregar-reporte.php?id=" . $reportePendiente['id']);
+    exit();
 }
 
 $pageTitle = "Mis Reportes - " . APP_NAME;
@@ -179,7 +225,7 @@ include '../../includes/sidebar.php';
                     </div>
                 </div>
                 <div class="action-buttons">
-                    <a href="../estudiantes/entregar-reporte.php?numero=<?= $proximoReporte ?>" class="btn btn-primary">
+                    <a href="../estudiantes/entregar-reporte.php" class="btn btn-primary">
                         <i class="fas fa-upload"></i>
                         Entregar Reporte <?= $proximoReporte ?>
                     </a>
@@ -289,7 +335,7 @@ include '../../includes/sidebar.php';
                         <h3>No hay reportes entregados</h3>
                         <p>Los reportes se habilitan una vez que tu solicitud sea aprobada y esté en proceso.</p>
                         <?php if ($proximoReporte && $solicitudActiva['estado'] === 'en_proceso'): ?>
-                        <a href="../estudiantes/entregar-reporte.php?numero=<?= $proximoReporte ?>" class="btn btn-primary">
+                        <a href="../estudiantes/entregar-reporte.php" class="btn btn-primary">
                             <i class="fas fa-plus"></i>
                             Entregar Primer Reporte
                         </a>
