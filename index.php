@@ -1821,4 +1821,40 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
+<?php
+// Lógica de enrutamiento de la API (si no se ha redirigido a un dashboard)
+$url = trim($_SERVER['REQUEST_URI'], '/');
+$url = str_replace(BASE_URL, '', $url);
+
+// Manejo de la API
+if (strpos($url, 'api/') === 0) {
+    $api_path = substr($url, 4);
+    // Se extrae el primer segmento después de 'api/' para el enrutamiento
+    $segments = explode('/', $api_path);
+    $api_base = $segments[0];
+    
+    if (file_exists('api/' . $api_base . '.php')) {
+        require 'api/' . $api_base . '.php';
+        exit;
+    }
+}
+?>
+<?php
+// Lógica de enrutamiento de la API (si no se ha redirigido a un dashboard)
+$url = trim($_SERVER['REQUEST_URI'], '/');
+$url = str_replace(BASE_URL, '', $url);
+
+// Manejo de la API
+if (strpos($url, 'api/') === 0) {
+    $api_path = substr($url, 4);
+    // Se extrae el primer segmento después de 'api/' para el enrutamiento
+    $segments = explode('/', $api_path);
+    $api_base = $segments[0];
+    
+    if (file_exists('api/' . $api_base . '.php')) {
+        require 'api/' . $api_base . '.php';
+        exit;
+    }
+}
+?>
 <?php include 'includes/footer.php'; ?>
