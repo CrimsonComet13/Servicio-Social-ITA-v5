@@ -40,7 +40,8 @@ try {
             r.horas_reportadas, 
             r.fecha_entrega,
             r.estado,
-            r.observaciones
+            r.observaciones_estudiante,
+            r.observaciones_responsable
         FROM reportes_bimestrales r
         JOIN solicitudes_servicio s ON r.solicitud_id = s.id
         WHERE s.estudiante_id = :estudiante_id
@@ -55,7 +56,8 @@ try {
             NULL as horas_reportadas, 
             rf.fecha_entrega,
             rf.estado,
-            NULL as observaciones
+            NULL as observaciones_estudiante,
+            NULL as observaciones_responsable
         FROM reportes_finales rf
         JOIN solicitudes_servicio s ON rf.solicitud_id = s.id
         WHERE s.estudiante_id = :estudiante_id
@@ -96,8 +98,17 @@ try {
     $semanasEstimadas = 0;
 }
 
-// Funciones helper
-
+// Funciones helper actualizadas para coincidir con estudiante.php
+function getEstadoCssClass($estado) {
+    switch($estado) {
+        case 'aprobado': return 'approved';
+        case 'pendiente_evaluacion':
+        case 'pendiente': return 'pending';
+        case 'rechazado': return 'rejected';
+        case 'en_revision': return 'in-progress';
+        default: return 'pending';
+    }
+}
 
 function getEstadoIcon($estado) {
     switch($estado) {
@@ -110,30 +121,31 @@ function getEstadoIcon($estado) {
     }
 }
 
-
-
 include '../../includes/header.php';
 include '../../includes/sidebar.php';
 ?>
 
-<div class="horas-container">
+<!-- ⭐ ESTRUCTURA ACTUALIZADA CON DISEÑO COHERENTE -->
+<div class="dashboard-container">
     
-    <!-- Page Header -->
-    <div class="page-header">
-        <div class="header-content">
-            <div class="header-icon">
-                <i class="fas fa-clock"></i>
-            </div>
-            <div class="header-text">
-                <h1 class="page-title">Mi Progreso de Horas</h1>
-                <p class="page-subtitle">Seguimiento detallado de tus horas de servicio social</p>
-            </div>
+    <!-- Page Header Actualizado -->
+    <div class="dashboard-header">
+        <div class="welcome-section">
+            <h1 class="welcome-title">
+                <span class="welcome-text">Mi Progreso de Horas</span>
+                <span class="welcome-emoji">📊</span>
+            </h1>
+            <p class="welcome-subtitle">Seguimiento detallado de tus horas de servicio social</p>
         </div>
-        <div class="header-actions">
-            <a href="reportes.php" class="btn btn-primary">
-                <i class="fas fa-file-alt"></i>
-                Gestionar Reportes
-            </a>
+        <div class="date-section">
+            <div class="current-date">
+                <i class="fas fa-calendar-alt"></i>
+                <span><?= formatDate(date('Y-m-d')) ?></span>
+            </div>
+            <div class="current-time">
+                <i class="fas fa-clock"></i>
+                <span id="currentTime"><?= date('H:i') ?></span>
+            </div>
         </div>
     </div>
 
@@ -149,128 +161,147 @@ include '../../includes/sidebar.php';
         </div>
     <?php elseif ($estudiante): ?>
 
-    <!-- Progress Overview Cards -->
-    <div class="progress-overview">
+    <!-- Progress Overview - Rediseñado -->
+    <div class="status-overview-redesign">
         
         <!-- Main Progress Card -->
-        <div class="overview-card main-progress">
-            <div class="card-header-custom">
-                <h3 class="card-title-custom">
-                    <i class="fas fa-chart-line"></i>
-                    Progreso General
-                </h3>
-            </div>
-            <div class="card-body-custom">
-                <div class="circular-progress-large">
-                    <div class="progress-circle-large" style="--progress: <?= round($progresoPorcentaje) ?>">
-                        <div class="progress-inner-large">
-                            <div class="progress-percentage-large"><?= round($progresoPorcentaje) ?>%</div>
-                            <div class="progress-label-large">Completado</div>
-                        </div>
+        <div class="progress-card">
+            <h3 class="progress-title">Progreso General</h3>
+            <div class="circular-progress-container">
+                <div class="circular-progress-bg" style="--progress: <?= round($progresoPorcentaje) ?>">
+                    <div class="circular-progress-inner">
+                        <div class="progress-percentage"><?= round($progresoPorcentaje) ?>%</div>
+                        <div class="progress-label">Completado</div>
                     </div>
                 </div>
-                <div class="progress-stats-grid">
-                    <div class="stat-item primary">
-                        <div class="stat-icon">
-                            <i class="fas fa-bullseye"></i>
-                        </div>
-                        <div class="stat-content">
-                            <div class="stat-value"><?= $horasRequeridas ?></div>
-                            <div class="stat-label">Horas Requeridas</div>
-                        </div>
-                    </div>
-                    <div class="stat-item success">
-                        <div class="stat-icon">
-                            <i class="fas fa-check"></i>
-                        </div>
-                        <div class="stat-content">
-                            <div class="stat-value"><?= $horasCompletadas ?></div>
-                            <div class="stat-label">Horas Completadas</div>
-                        </div>
-                    </div>
-                    <div class="stat-item warning">
-                        <div class="stat-icon">
-                            <i class="fas fa-hourglass-half"></i>
-                        </div>
-                        <div class="stat-content">
-                            <div class="stat-value"><?= $horasRestantes ?></div>
-                            <div class="stat-label">Horas Restantes</div>
-                        </div>
-                    </div>
+            </div>
+            <div class="progress-details-list">
+                <div class="progress-detail-item">
+                    <span class="progress-detail-label">Horas requeridas</span>
+                    <span class="progress-detail-value"><?= $horasRequeridas ?></span>
+                </div>
+                <div class="progress-detail-item">
+                    <span class="progress-detail-label">Horas completadas</span>
+                    <span class="progress-detail-value success"><?= $horasCompletadas ?></span>
+                </div>
+                <div class="progress-detail-item">
+                    <span class="progress-detail-label">Horas restantes</span>
+                    <span class="progress-detail-value warning"><?= $horasRestantes ?></span>
                 </div>
             </div>
         </div>
 
-        <!-- Statistics Cards -->
-        <div class="stats-cards">
-            
-            <!-- Approved Hours Card -->
-            <div class="stat-card success-card">
-                <div class="stat-card-icon">
-                    <i class="fas fa-check-circle"></i>
-                </div>
-                <div class="stat-card-content">
-                    <div class="stat-card-value"><?= $horasAprobadas ?></div>
-                    <div class="stat-card-label">Horas Aprobadas</div>
-                    <div class="stat-card-detail">
-                        Validadas por tu supervisor
+        <!-- Statistics Cards - Rediseñadas -->
+        <div class="reports-card">
+            <h3 class="reports-title">Estado de Horas</h3>
+            <div class="reports-metrics">
+                
+                <!-- Approved Hours -->
+                <div class="metric-item approved">
+                    <div class="metric-icon">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="metric-content">
+                        <div class="metric-number"><?= $horasAprobadas ?></div>
+                        <div class="metric-label">Horas Aprobadas</div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Pending Hours Card -->
-            <div class="stat-card warning-card">
-                <div class="stat-card-icon">
-                    <i class="fas fa-clock"></i>
-                </div>
-                <div class="stat-card-content">
-                    <div class="stat-card-value"><?= $horasPendientes ?></div>
-                    <div class="stat-card-label">Horas Pendientes</div>
-                    <div class="stat-card-detail">
-                        En proceso de evaluación
+                <!-- Pending Hours -->
+                <div class="metric-item pending">
+                    <div class="metric-icon">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <div class="metric-content">
+                        <div class="metric-number"><?= $horasPendientes ?></div>
+                        <div class="metric-label">Horas Pendientes</div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Average Card -->
-            <div class="stat-card info-card">
-                <div class="stat-card-icon">
-                    <i class="fas fa-chart-bar"></i>
-                </div>
-                <div class="stat-card-content">
-                    <div class="stat-card-value"><?= $promedioSemanal ?></div>
-                    <div class="stat-card-label">Horas/Semana</div>
-                    <div class="stat-card-detail">
-                        Promedio semanal actual
+                <!-- Average Hours -->
+                <div class="metric-item total">
+                    <div class="metric-icon">
+                        <i class="fas fa-chart-bar"></i>
+                    </div>
+                    <div class="metric-content">
+                        <div class="metric-number"><?= $promedioSemanal ?></div>
+                        <div class="metric-label">Horas/Semana</div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Estimated Time Card -->
-            <div class="stat-card primary-card">
-                <div class="stat-card-icon">
-                    <i class="fas fa-calendar-alt"></i>
-                </div>
-                <div class="stat-card-content">
-                    <div class="stat-card-value"><?= $semanasEstimadas ?></div>
-                    <div class="stat-card-label">Semanas Estimadas</div>
-                    <div class="stat-card-detail">
-                        Para completar servicio
+                <!-- Estimated Time -->
+                <div class="metric-item info">
+                    <div class="metric-icon">
+                        <i class="fas fa-calendar-alt"></i>
+                    </div>
+                    <div class="metric-content">
+                        <div class="metric-number"><?= $semanasEstimadas ?></div>
+                        <div class="metric-label">Semanas Estimadas</div>
                     </div>
                 </div>
-            </div>
 
+            </div>
         </div>
     </div>
 
-    <!-- Timeline Section -->
-    <div class="timeline-section">
-        <div class="section-header-custom">
-            <h2 class="section-title-custom">
+    <!-- Quick Actions -->
+    <div class="quick-actions-section">
+        <div class="section-header">
+            <h2 class="section-title">
+                <i class="fas fa-rocket"></i>
+                Acciones Rápidas
+            </h2>
+        </div>
+        <div class="quick-actions-grid">
+            <a href="reportes.php" class="quick-action-card primary">
+                <div class="action-icon">
+                    <i class="fas fa-file-alt"></i>
+                </div>
+                <div class="action-content">
+                    <h3>Gestionar Reportes</h3>
+                    <p>Entregar y revisar reportes bimestrales</p>
+                </div>
+                <div class="action-arrow">
+                    <i class="fas fa-chevron-right"></i>
+                </div>
+            </a>
+            
+            <a href="solicitud.php" class="quick-action-card success">
+                <div class="action-icon">
+                    <i class="fas fa-paper-plane"></i>
+                </div>
+                <div class="action-content">
+                    <h3>Nueva Solicitud</h3>
+                    <p>Crear nueva solicitud de servicio</p>
+                </div>
+                <div class="action-arrow">
+                    <i class="fas fa-chevron-right"></i>
+                </div>
+            </a>
+            
+            <a href="documentos.php" class="quick-action-card info">
+                <div class="action-icon">
+                    <i class="fas fa-file-download"></i>
+                </div>
+                <div class="action-content">
+                    <h3>Documentos</h3>
+                    <p>Descargar oficios y constancias</p>
+                </div>
+                <div class="action-arrow">
+                    <i class="fas fa-chevron-right"></i>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <!-- Timeline Section - Rediseñada -->
+    <div class="content-section">
+        <div class="section-header">
+            <h2 class="section-title">
                 <i class="fas fa-history"></i>
                 Historial de Reportes
             </h2>
-            <div class="section-subtitle-custom">
+            <div class="section-subtitle">
                 Detalle cronológico de tus reportes de horas
             </div>
         </div>
@@ -278,274 +309,184 @@ include '../../includes/sidebar.php';
         <?php if (empty($detalleHoras)): ?>
             <div class="empty-state">
                 <div class="empty-icon">
-                    <i class="fas fa-inbox"></i>
+                    <i class="fas fa-file-alt"></i>
                 </div>
-                <h3>No hay reportes registrados</h3>
-                <p>Aún no has entregado ningún reporte de horas. Comienza a registrar tu progreso.</p>
-                <a href="reportes.php" class="btn btn-primary">
-                    <i class="fas fa-plus"></i>
-                    Crear Primer Reporte
-                </a>
+                <div class="empty-content">
+                    <h3>Aún no has entregado reportes</h3>
+                    <p>Comienza entregando tu primer reporte bimestral para llevar el control de tus horas.</p>
+                    <a href="reportes.php" class="btn btn-primary">
+                        <i class="fas fa-plus"></i>
+                        Entregar Primer Reporte
+                    </a>
+                </div>
             </div>
         <?php else: ?>
-            
-            <div class="timeline">
-                <?php 
-                $totalReportes = count($detalleHoras);
-                foreach ($detalleHoras as $index => $detalle): 
+            <div class="timeline-redesign">
+                <?php foreach ($detalleHoras as $index => $detalle): 
                     $isFinal = $detalle['numero_reporte'] === 'Final';
-                    $reporteLabel = $isFinal ? 'Reporte Final' : 'Bimestre ' . $detalle['numero_reporte'];
-                    $estadoBadge = getEstadoBadgeClass($detalle['estado'] ?? 'desconocido');
-                    $estadoIcon = getEstadoIcon($detalle['estado'] ?? 'desconocido');
-                    $estadoText = getEstadoText($detalle['estado'] ?? 'desconocido');
-                    $isLast = ($index === $totalReportes - 1);
+                    $reporteLabel = $isFinal ? 'Reporte Final' : 'Reporte Bimestral #' . $detalle['numero_reporte'];
+                    $estado = $detalle['estado'] ?? 'desconocido';
+                    $estadoClass = getEstadoCssClass($estado);
+                    $estadoIcon = getEstadoIcon($estado);
+                    $isLast = $index === count($detalleHoras) - 1;
                 ?>
-                
-                <div class="timeline-item <?= $detalle['estado'] === 'aprobado' ? 'completed' : '' ?> <?= $isLast ? 'last' : '' ?>">
+                <div class="timeline-item <?= $estadoClass ?> <?= $isLast ? 'last' : '' ?>">
                     <div class="timeline-marker">
                         <div class="timeline-icon">
                             <i class="fas fa-<?= $estadoIcon ?>"></i>
                         </div>
+                        <?php if (!$isLast): ?>
+                        <div class="timeline-line"></div>
+                        <?php endif; ?>
                     </div>
-                    
                     <div class="timeline-content">
-                        <div class="timeline-card">
-                            <div class="timeline-card-header">
-                                <div class="timeline-card-title">
-                                    <h4><?= htmlspecialchars($reporteLabel) ?></h4>
-                                    <span class="badge <?= $estadoBadge ?>">
-                                        <i class="fas fa-<?= $estadoIcon ?>"></i>
-                                        <?= $estadoText ?>
-                                    </span>
-                                </div>
-                                <div class="timeline-card-date">
+                        <div class="timeline-header">
+                            <h4 class="timeline-title"><?= htmlspecialchars($reporteLabel) ?></h4>
+                            <div class="timeline-meta">
+                                <span class="timeline-date">
                                     <i class="fas fa-calendar"></i>
                                     <?= formatDate($detalle['fecha_entrega']) ?>
-                                </div>
+                                </span>
+                                <span class="badge <?= $estadoClass ?>">
+                                    <?= ucfirst(str_replace('_', ' ', $estado)) ?>
+                                </span>
                             </div>
+                        </div>
+                        
+                        <div class="timeline-body">
+                            <?php if ($detalle['horas_reportadas']): ?>
+                            <div class="timeline-stat">
+                                <i class="fas fa-clock"></i>
+                                <strong><?= htmlspecialchars($detalle['horas_reportadas']) ?> horas</strong> reportadas
+                            </div>
+                            <?php endif; ?>
                             
-                            <div class="timeline-card-body">
-                                <div class="timeline-info-grid">
-                                    <div class="info-item">
-                                        <div class="info-icon">
-                                            <i class="fas fa-clock"></i>
-                                        </div>
-                                        <div class="info-content">
-                                            <div class="info-label">Horas Reportadas</div>
-                                            <div class="info-value">
-                                                <?= $detalle['horas_reportadas'] ? htmlspecialchars($detalle['horas_reportadas']) . ' horas' : 'N/A' ?>
-                                            </div>
-                                        </div>
+                            <?php if (!empty($detalle['observaciones_responsable'])): ?>
+                                <div class="timeline-note supervisor">
+                                    <div class="note-header">
+                                        <i class="fas fa-user-tie"></i>
+                                        <strong>Observación del Supervisor</strong>
                                     </div>
-                                    
-                                    <?php if (!empty($detalle['observaciones'])): ?>
-                                    <div class="info-item full-width">
-                                        <div class="info-icon">
-                                            <i class="fas fa-comment"></i>
-                                        </div>
-                                        <div class="info-content">
-                                            <div class="info-label">Observaciones</div>
-                                            <div class="info-value observation">
-                                                <?= htmlspecialchars($detalle['observaciones']) ?>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <?php endif; ?>
+                                    <p><?= htmlspecialchars($detalle['observaciones_responsable']) ?></p>
                                 </div>
-                            </div>
+                            <?php endif; ?>
                             
-                            <?php if ($detalle['estado'] === 'aprobado'): ?>
-                            <div class="timeline-card-footer success">
-                                <i class="fas fa-check-circle"></i>
-                                <span>Reporte aprobado y horas validadas</span>
-                            </div>
-                            <?php elseif ($detalle['estado'] === 'pendiente_evaluacion'): ?>
-                            <div class="timeline-card-footer warning">
-                                <i class="fas fa-hourglass-half"></i>
-                                <span>En espera de evaluación por tu supervisor</span>
-                            </div>
-                            <?php elseif ($detalle['estado'] === 'rechazado'): ?>
-                            <div class="timeline-card-footer danger">
-                                <i class="fas fa-times-circle"></i>
-                                <span>Reporte rechazado - Revisa las observaciones</span>
-                            </div>
+                            <?php if (!empty($detalle['observaciones_estudiante'])): ?>
+                                <div class="timeline-note student">
+                                    <div class="note-header">
+                                        <i class="fas fa-user-edit"></i>
+                                        <strong>Tu Autoevaluación</strong>
+                                    </div>
+                                    <p><?= htmlspecialchars($detalle['observaciones_estudiante']) ?></p>
+                                </div>
                             <?php endif; ?>
                         </div>
                     </div>
                 </div>
-                
                 <?php endforeach; ?>
             </div>
-
         <?php endif; ?>
     </div>
-
+    
     <?php endif; ?>
+
 </div>
 
+<!-- ⭐ CSS ACTUALIZADO COHERENTE CON ESTUDIANTE.PHP -->
 <style>
-:root {
-    --primary: #6366f1;
-    --primary-light: #818cf8;
-    --success: #10b981;
-    --success-light: #34d399;
-    --warning: #f59e0b;
-    --warning-light: #fbbf24;
-    --error: #ef4444;
-    --info: #3b82f6;
-    --info-light: #60a5fa;
-    --text-primary: #1f2937;
-    --text-secondary: #6b7280;
-    --text-light: #9ca3af;
-    --bg-white: #ffffff;
-    --bg-light: #f9fafb;
-    --bg-gray: #f3f4f6;
-    --border: #e5e7eb;
-    --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-    --radius: 0.5rem;
-    --radius-lg: 0.75rem;
-    --transition: all 0.3s ease;
+/* Reutilizar variables y estilos base del dashboard */
+.dashboard-container {
+    padding: 1.5rem;
+    max-width: none;
+    margin: 0;
+    width: 100%;
 }
 
-.horas-container {
-    padding: 2rem;
-    max-width: 1400px;
-    margin: 0 auto;
-}
-
-/* Page Header */
-.page-header {
+/* Header Section */
+.dashboard-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 2rem;
     padding-bottom: 1.5rem;
-    border-bottom: 2px solid var(--border);
+    border-bottom: 1px solid var(--border-light);
 }
 
-.header-content {
+.welcome-section .welcome-title {
     display: flex;
     align-items: center;
-    gap: 1.5rem;
-}
-
-.header-icon {
-    width: 70px;
-    height: 70px;
-    background: linear-gradient(135deg, var(--primary), var(--primary-light));
-    border-radius: var(--radius-lg);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 2rem;
-    color: white;
-    box-shadow: var(--shadow-lg);
-}
-
-.header-text {
-    flex: 1;
-}
-
-.page-title {
-    font-size: 2rem;
+    gap: 0.5rem;
+    font-size: 1.8rem;
     font-weight: 700;
     color: var(--text-primary);
     margin: 0 0 0.5rem 0;
 }
 
-.page-subtitle {
+.welcome-subtitle {
+    font-size: 1.1rem;
     color: var(--text-secondary);
     margin: 0;
-    font-size: 1.1rem;
 }
 
-/* Alert */
-.alert-error {
+.date-section {
     display: flex;
-    align-items: flex-start;
     gap: 1rem;
-    padding: 1.5rem;
-    background: rgba(239, 68, 68, 0.1);
-    border: 1px solid rgba(239, 68, 68, 0.2);
-    border-radius: var(--radius-lg);
-    margin-bottom: 2rem;
 }
 
-.alert-icon {
-    width: 40px;
-    height: 40px;
-    background: var(--error);
-    border-radius: 50%;
+.current-date, .current-time {
     display: flex;
     align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 1.25rem;
-    flex-shrink: 0;
-}
-
-.alert-content strong {
-    display: block;
-    color: var(--error);
-    margin-bottom: 0.5rem;
-}
-
-.alert-content p {
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: var(--bg-light);
+    border-radius: var(--radius);
+    font-size: 0.9rem;
     color: var(--text-secondary);
-    margin: 0;
 }
 
-/* Progress Overview */
-.progress-overview {
+/* Status Overview Redesign */
+.status-overview-redesign {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 2rem;
-    margin-bottom: 3rem;
-}
-
-/* Main Progress Card */
-.overview-card {
-    background: var(--bg-white);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-lg);
-    overflow: hidden;
-}
-
-.main-progress {
-    grid-column: 1 / -1;
-}
-
-.card-header-custom {
-    padding: 1.5rem 2rem;
-    background: linear-gradient(135deg, var(--primary), var(--primary-light));
-    color: white;
-}
-
-.card-title-custom {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    font-size: 1.5rem;
-    font-weight: 600;
-    margin: 0;
-}
-
-.card-body-custom {
-    padding: 2rem;
-}
-
-/* Circular Progress Large */
-.circular-progress-large {
-    display: flex;
-    justify-content: center;
+    gap: 1.5rem;
     margin-bottom: 2rem;
 }
 
-.progress-circle-large {
+/* Progress Card */
+.progress-card {
+    background: var(--bg-white);
+    border-radius: var(--radius-lg);
+    padding: 2rem;
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    transition: var(--transition);
+}
+
+.progress-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-lg);
+}
+
+.progress-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 1.5rem 0;
+}
+
+.circular-progress-container {
     position: relative;
-    width: 200px;
-    height: 200px;
+    width: 160px;
+    height: 160px;
+    margin-bottom: 1.5rem;
+}
+
+.circular-progress-bg {
+    width: 100%;
+    height: 100%;
     border-radius: 50%;
     background: conic-gradient(
         var(--success) 0deg,
@@ -556,479 +497,553 @@ include '../../includes/sidebar.php';
     display: flex;
     align-items: center;
     justify-content: center;
+    position: relative;
     transition: all 1s ease-out;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
 }
 
-.progress-inner-large {
-    width: 160px;
-    height: 160px;
+.circular-progress-inner {
+    width: 120px;
+    height: 120px;
     background: var(--bg-white);
     border-radius: 50%;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
-.progress-percentage-large {
-    font-size: 3rem;
+.progress-percentage {
+    font-size: 2rem;
     font-weight: 800;
     color: var(--success);
     line-height: 1;
 }
 
-.progress-label-large {
-    font-size: 1rem;
+.progress-label {
+    font-size: 0.8rem;
     color: var(--text-secondary);
-    margin-top: 0.5rem;
+    margin-top: 0.25rem;
 }
 
-/* Progress Stats Grid */
-.progress-stats-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1.5rem;
+.progress-details-list {
+    width: 100%;
 }
 
-.stat-item {
+.progress-detail-item {
     display: flex;
+    justify-content: space-between;
     align-items: center;
-    gap: 1rem;
-    padding: 1.5rem;
+    padding: 0.75rem;
     background: var(--bg-light);
-    border-radius: var(--radius-lg);
-    border-left: 4px solid transparent;
+    border-radius: var(--radius);
+    margin-bottom: 0.5rem;
     transition: var(--transition);
 }
 
-.stat-item:hover {
+.progress-detail-item:hover {
+    background: var(--bg-white);
+    box-shadow: var(--shadow-sm);
+}
+
+.progress-detail-label {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.progress-detail-value {
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.progress-detail-value.success {
+    color: var(--success);
+}
+
+.progress-detail-value.warning {
+    color: var(--warning);
+}
+
+/* Reports Card */
+.reports-card {
+    background: var(--bg-white);
+    border-radius: var(--radius-lg);
+    padding: 2rem;
+    box-shadow: var(--shadow);
+    transition: var(--transition);
+}
+
+.reports-card:hover {
     transform: translateY(-5px);
     box-shadow: var(--shadow-lg);
 }
 
-.stat-item.primary {
-    border-left-color: var(--primary);
+.reports-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 1.5rem 0;
+    text-align: center;
 }
 
-.stat-item.success {
+.reports-metrics {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.metric-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: var(--bg-light);
+    border-radius: var(--radius);
+    border-left: 4px solid transparent;
+    transition: var(--transition);
+}
+
+.metric-item:hover {
+    transform: translateX(5px);
+    background: var(--bg-white);
+    box-shadow: var(--shadow);
+}
+
+.metric-item.approved {
     border-left-color: var(--success);
 }
 
-.stat-item.warning {
+.metric-item.pending {
     border-left-color: var(--warning);
 }
 
-.stat-icon {
+.metric-item.total {
+    border-left-color: var(--info);
+}
+
+.metric-item.info {
+    border-left-color: var(--primary);
+}
+
+.metric-icon {
     width: 50px;
     height: 50px;
     border-radius: var(--radius);
     display: flex;
     align-items: center;
     justify-content: center;
+    font-size: 1.25rem;
+    color: white;
+    flex-shrink: 0;
+}
+
+.metric-item.approved .metric-icon {
+    background: linear-gradient(135deg, var(--success), #34d399);
+}
+
+.metric-item.pending .metric-icon {
+    background: linear-gradient(135deg, var(--warning), #fbbf24);
+}
+
+.metric-item.total .metric-icon {
+    background: linear-gradient(135deg, var(--info), #60a5fa);
+}
+
+.metric-item.info .metric-icon {
+    background: linear-gradient(135deg, var(--primary), #818cf8);
+}
+
+.metric-content {
+    flex: 1;
+}
+
+.metric-number {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    line-height: 1;
+}
+
+.metric-label {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-top: 0.25rem;
+}
+
+/* Quick Actions Section */
+.quick-actions-section {
+    margin-bottom: 2rem;
+}
+
+.quick-actions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+}
+
+.quick-action-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.5rem;
+    background: var(--bg-white);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    text-decoration: none;
+    color: inherit;
+    transition: var(--transition);
+    border-left: 4px solid transparent;
+}
+
+.quick-action-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lg);
+}
+
+.quick-action-card.primary {
+    border-left-color: var(--primary);
+}
+
+.quick-action-card.success {
+    border-left-color: var(--success);
+}
+
+.quick-action-card.info {
+    border-left-color: var(--info);
+}
+
+.action-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
     font-size: 1.5rem;
     color: white;
     flex-shrink: 0;
 }
 
-.stat-item.primary .stat-icon {
+.quick-action-card.primary .action-icon {
     background: linear-gradient(135deg, var(--primary), var(--primary-light));
 }
 
-.stat-item.success .stat-icon {
-    background: linear-gradient(135deg, var(--success), var(--success-light));
+.quick-action-card.success .action-icon {
+    background: linear-gradient(135deg, var(--success), #34d399);
 }
 
-.stat-item.warning .stat-icon {
-    background: linear-gradient(135deg, var(--warning), var(--warning-light));
+.quick-action-card.info .action-icon {
+    background: linear-gradient(135deg, var(--info), #60a5fa);
 }
 
-.stat-content {
+.action-content {
     flex: 1;
 }
 
-.stat-value {
-    font-size: 2rem;
-    font-weight: 800;
-    color: var(--text-primary);
-    line-height: 1;
-}
-
-.stat-label {
-    font-size: 0.9rem;
-    color: var(--text-secondary);
-    margin-top: 0.25rem;
-}
-
-/* Statistics Cards */
-.stats-cards {
-    grid-column: 1 / -1;
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 1.5rem;
-}
-
-.stat-card {
-    background: var(--bg-white);
-    border-radius: var(--radius-lg);
-    padding: 1.5rem;
-    box-shadow: var(--shadow);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    transition: var(--transition);
-    border-top: 4px solid transparent;
-}
-
-.stat-card:hover {
-    transform: translateY(-5px);
-    box-shadow: var(--shadow-lg);
-}
-
-.stat-card.success-card {
-    border-top-color: var(--success);
-}
-
-.stat-card.warning-card {
-    border-top-color: var(--warning);
-}
-
-.stat-card.info-card {
-    border-top-color: var(--info);
-}
-
-.stat-card.primary-card {
-    border-top-color: var(--primary);
-}
-
-.stat-card-icon {
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.75rem;
-    color: white;
-    margin-bottom: 1rem;
-}
-
-.success-card .stat-card-icon {
-    background: linear-gradient(135deg, var(--success), var(--success-light));
-}
-
-.warning-card .stat-card-icon {
-    background: linear-gradient(135deg, var(--warning), var(--warning-light));
-}
-
-.info-card .stat-card-icon {
-    background: linear-gradient(135deg, var(--info), var(--info-light));
-}
-
-.primary-card .stat-card-icon {
-    background: linear-gradient(135deg, var(--primary), var(--primary-light));
-}
-
-.stat-card-value {
-    font-size: 2.5rem;
-    font-weight: 800;
-    color: var(--text-primary);
-    line-height: 1;
-    margin-bottom: 0.5rem;
-}
-
-.stat-card-label {
-    font-size: 1rem;
+.action-content h3 {
+    font-size: 1.1rem;
     font-weight: 600;
-    color: var(--text-secondary);
-    margin-bottom: 0.5rem;
-}
-
-.stat-card-detail {
-    font-size: 0.85rem;
-    color: var(--text-light);
-}
-
-/* Timeline Section */
-.timeline-section {
-    background: var(--bg-white);
-    border-radius: var(--radius-lg);
-    padding: 2rem;
-    box-shadow: var(--shadow-lg);
-}
-
-.section-header-custom {
-    text-align: center;
-    margin-bottom: 3rem;
-    padding-bottom: 2rem;
-    border-bottom: 2px solid var(--border);
-}
-
-.section-title-custom {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.75rem;
-    font-size: 1.75rem;
-    font-weight: 700;
     color: var(--text-primary);
     margin: 0 0 0.5rem 0;
 }
 
-.section-subtitle-custom {
+.action-content p {
+    font-size: 0.9rem;
     color: var(--text-secondary);
-    font-size: 1rem;
+    margin: 0;
+}
+
+.action-arrow {
+    color: var(--text-light);
+    font-size: 1.25rem;
+    transition: var(--transition);
+}
+
+.quick-action-card:hover .action-arrow {
+    color: var(--primary);
+    transform: translateX(5px);
+}
+
+/* Content Section */
+.content-section {
+    background: var(--bg-white);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: var(--shadow);
+}
+
+.section-header {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 0.5rem 0;
+}
+
+.section-subtitle {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
 }
 
 /* Empty State */
 .empty-state {
     text-align: center;
-    padding: 4rem 2rem;
+    padding: 3rem 2rem;
 }
 
 .empty-icon {
-    width: 100px;
-    height: 100px;
-    background: linear-gradient(135deg, var(--primary), var(--primary-light));
+    width: 80px;
+    height: 80px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 3rem;
+    font-size: 2rem;
     color: white;
-    margin: 0 auto 2rem;
+    background: linear-gradient(135deg, var(--primary), var(--primary-light));
+    margin: 0 auto 1.5rem;
 }
 
-.empty-state h3 {
+.empty-content h3 {
     font-size: 1.5rem;
     font-weight: 600;
     color: var(--text-primary);
-    margin-bottom: 1rem;
+    margin: 0 0 0.5rem 0;
 }
 
-.empty-state p {
+.empty-content p {
     color: var(--text-secondary);
-    margin-bottom: 2rem;
+    margin-bottom: 1.5rem;
 }
 
-/* Timeline */
-.timeline {
+/* Timeline Redesign */
+.timeline-redesign {
     position: relative;
-    padding-left: 3rem;
-}
-
-.timeline::before {
-    content: '';
-    position: absolute;
-    left: 30px;
-    top: 0;
-    bottom: 0;
-    width: 3px;
-    background: linear-gradient(to bottom, var(--primary), var(--primary-light));
 }
 
 .timeline-item {
+    display: flex;
+    gap: 1.5rem;
+    padding: 1.5rem 0;
     position: relative;
-    margin-bottom: 2rem;
 }
 
-.timeline-item.last {
-    margin-bottom: 0;
+.timeline-item:not(.last)::after {
+    content: '';
+    position: absolute;
+    left: 24px;
+    top: 70px;
+    bottom: -1.5rem;
+    width: 2px;
+    background: var(--border);
 }
 
 .timeline-marker {
-    position: absolute;
-    left: -3rem;
-    top: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    z-index: 2;
 }
 
 .timeline-icon {
-    width: 60px;
-    height: 60px;
-    background: var(--bg-white);
-    border: 4px solid var(--primary);
+    width: 48px;
+    height: 48px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.5rem;
-    color: var(--primary);
-    box-shadow: var(--shadow-lg);
-    transition: var(--transition);
+    font-size: 1.25rem;
+    color: white;
+    flex-shrink: 0;
 }
 
-.timeline-item.completed .timeline-icon {
-    background: var(--success);
-    border-color: var(--success);
-    color: white;
+.timeline-item.approved .timeline-icon {
+    background: linear-gradient(135deg, var(--success), #34d399);
+}
+
+.timeline-item.pending .timeline-icon {
+    background: linear-gradient(135deg, var(--warning), #fbbf24);
+}
+
+.timeline-item.in-progress .timeline-icon {
+    background: linear-gradient(135deg, var(--info), #60a5fa);
+}
+
+.timeline-item.rejected .timeline-icon {
+    background: linear-gradient(135deg, var(--error), #f87171);
 }
 
 .timeline-content {
-    padding-left: 1rem;
-}
-
-.timeline-card {
+    flex: 1;
     background: var(--bg-light);
-    border-radius: var(--radius-lg);
-    overflow: hidden;
+    border-radius: var(--radius);
+    padding: 1.5rem;
     transition: var(--transition);
 }
 
-.timeline-card:hover {
-    transform: translateX(10px);
-    box-shadow: var(--shadow-lg);
-}
-
-.timeline-card-header {
+.timeline-content:hover {
     background: var(--bg-white);
-    padding: 1.5rem;
-    border-bottom: 2px solid var(--border);
+    box-shadow: var(--shadow-sm);
 }
 
-.timeline-card-title {
+.timeline-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.75rem;
+    align-items: flex-start;
+    margin-bottom: 1rem;
 }
 
-.timeline-card-title h4 {
-    font-size: 1.25rem;
+.timeline-title {
+    font-size: 1.1rem;
     font-weight: 600;
     color: var(--text-primary);
     margin: 0;
 }
 
-.timeline-card-date {
+.timeline-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.5rem;
+}
+
+.timeline-date {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-}
-
-.timeline-card-body {
-    padding: 1.5rem;
-}
-
-.timeline-info-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1rem;
-}
-
-.info-item {
-    display: flex;
-    align-items: flex-start;
-    gap: 1rem;
-    padding: 1rem;
-    background: var(--bg-white);
-    border-radius: var(--radius);
-}
-
-.info-item.full-width {
-    grid-column: 1 / -1;
-}
-
-.info-icon {
-    width: 40px;
-    height: 40px;
-    background: var(--primary);
-    border-radius: var(--radius);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1rem;
-    color: white;
-    flex-shrink: 0;
-}
-
-.info-content {
-    flex: 1;
-}
-
-.info-label {
     font-size: 0.85rem;
     color: var(--text-secondary);
-    margin-bottom: 0.25rem;
-    font-weight: 500;
 }
 
-.info-value {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: var(--text-primary);
-}
-
-.info-value.observation {
-    font-size: 0.95rem;
-    font-weight: 400;
-    line-height: 1.5;
-}
-
-.timeline-card-footer {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 1rem 1.5rem;
-    font-size: 0.9rem;
-    font-weight: 500;
-}
-
-.timeline-card-footer.success {
-    background: rgba(16, 185, 129, 0.1);
-    color: var(--success);
-}
-
-.timeline-card-footer.warning {
-    background: rgba(245, 158, 11, 0.1);
-    color: var(--warning);
-}
-
-.timeline-card-footer.danger {
-    background: rgba(239, 68, 68, 0.1);
-    color: var(--error);
-}
-
-/* Badges */
 .badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
+    padding: 0.25rem 0.75rem;
     border-radius: 2rem;
-    font-size: 0.85rem;
+    font-size: 0.75rem;
     font-weight: 600;
+    text-transform: capitalize;
 }
 
-.badge-success {
+.badge.approved {
     background: rgba(16, 185, 129, 0.1);
     color: var(--success);
     border: 1px solid rgba(16, 185, 129, 0.2);
 }
 
-.badge-warning {
+.badge.pending {
     background: rgba(245, 158, 11, 0.1);
     color: var(--warning);
     border: 1px solid rgba(245, 158, 11, 0.2);
 }
 
-.badge-danger {
-    background: rgba(239, 68, 68, 0.1);
-    color: var(--error);
-    border: 1px solid rgba(239, 68, 68, 0.2);
-}
-
-.badge-info {
+.badge.in-progress {
     background: rgba(59, 130, 246, 0.1);
     color: var(--info);
     border: 1px solid rgba(59, 130, 246, 0.2);
 }
 
-.badge-secondary {
-    background: rgba(107, 114, 128, 0.1);
+.badge.rejected {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--error);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.timeline-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.timeline-stat {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+}
+
+.timeline-note {
+    padding: 1rem;
+    border-radius: var(--radius);
+    font-size: 0.9rem;
+}
+
+.timeline-note.supervisor {
+    background: rgba(59, 130, 246, 0.05);
+    border-left: 3px solid var(--info);
+}
+
+.timeline-note.student {
+    background: rgba(16, 185, 129, 0.05);
+    border-left: 3px solid var(--success);
+}
+
+.note-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
+.timeline-note.supervisor .note-header {
+    color: var(--info);
+}
+
+.timeline-note.student .note-header {
+    color: var(--success);
+}
+
+.timeline-note p {
+    margin: 0;
     color: var(--text-secondary);
-    border: 1px solid rgba(107, 114, 128, 0.2);
+    line-height: 1.5;
+}
+
+/* Alert Styles */
+.alert-error {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    border-radius: var(--radius);
+    margin-bottom: 1.5rem;
+}
+
+.alert-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    color: white;
+    background: var(--error);
+    flex-shrink: 0;
+}
+
+.alert-content strong {
+    display: block;
+    color: var(--error);
+    margin-bottom: 0.25rem;
+}
+
+.alert-content p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
 }
 
 /* Buttons */
@@ -1037,20 +1052,20 @@ include '../../includes/sidebar.php';
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    padding: 0.75rem 1.5rem;
+    padding: 0.75rem 1.25rem;
     border-radius: var(--radius);
     text-decoration: none;
-    font-weight: 600;
-    font-size: 0.95rem;
+    font-weight: 500;
+    font-size: 0.9rem;
     transition: var(--transition);
     border: none;
     cursor: pointer;
+    white-space: nowrap;
 }
 
 .btn-primary {
     background: linear-gradient(135deg, var(--primary), var(--primary-light));
     color: white;
-    box-shadow: var(--shadow);
 }
 
 .btn-primary:hover {
@@ -1059,209 +1074,124 @@ include '../../includes/sidebar.php';
 }
 
 /* Responsive Design */
-@media (max-width: 1200px) {
-    .stats-cards {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-@media (max-width: 992px) {
-    .progress-overview {
+@media (max-width: 1024px) {
+    .status-overview-redesign {
         grid-template-columns: 1fr;
     }
     
-    .progress-stats-grid {
-        grid-template-columns: repeat(2, 1fr);
+    .quick-actions-grid {
+        grid-template-columns: 1fr;
     }
 }
 
 @media (max-width: 768px) {
-    .horas-container {
-        padding: 1rem;
-    }
-    
-    .page-header {
+    .dashboard-header {
         flex-direction: column;
         align-items: flex-start;
         gap: 1rem;
     }
     
-    .header-content {
+    .date-section {
         width: 100%;
+        justify-content: space-between;
     }
     
-    .header-actions {
-        width: 100%;
+    .timeline-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
     }
     
-    .header-actions .btn {
-        width: 100%;
+    .timeline-meta {
+        align-items: flex-start;
     }
     
-    .stats-cards {
-        grid-template-columns: 1fr;
-    }
-    
-    .progress-stats-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .timeline {
-        padding-left: 2rem;
-    }
-    
-    .timeline::before {
-        left: 20px;
-    }
-    
-    .timeline-marker {
-        left: -2rem;
-    }
-    
-    .timeline-icon {
-        width: 40px;
-        height: 40px;
-        font-size: 1rem;
-    }
-    
-    .timeline-info-grid {
-        grid-template-columns: 1fr;
+    .progress-card,
+    .reports-card {
+        padding: 1.5rem;
     }
 }
 
 @media (max-width: 480px) {
-    .page-title {
-        font-size: 1.5rem;
+    .dashboard-container {
+        padding: 1rem;
     }
     
-    .header-icon {
-        width: 50px;
-        height: 50px;
-        font-size: 1.5rem;
+    .circular-progress-container {
+        width: 140px;
+        height: 140px;
     }
     
-    .circular-progress-large {
-        margin-bottom: 1.5rem;
+    .circular-progress-inner {
+        width: 100px;
+        height: 100px;
     }
     
-    .progress-circle-large {
-        width: 150px;
-        height: 150px;
+    .progress-percentage {
+        font-size: 1.75rem;
     }
     
-    .progress-inner-large {
-        width: 120px;
-        height: 120px;
-    }
-    
-    .progress-percentage-large {
-        font-size: 2rem;
-    }
-    
-    .stat-card-value {
-        font-size: 2rem;
-    }
-}
-
-/* Animations */
-@keyframes slideInUp {
-    from {
-        opacity: 0;
-        transform: translateY(30px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-    }
-    to {
-        opacity: 1;
-    }
-}
-
-.progress-overview > * {
-    animation: slideInUp 0.6s ease-out;
-}
-
-.timeline-item {
-    animation: fadeIn 0.5s ease-out;
-}
-
-.timeline-item:nth-child(1) { animation-delay: 0.1s; }
-.timeline-item:nth-child(2) { animation-delay: 0.2s; }
-.timeline-item:nth-child(3) { animation-delay: 0.3s; }
-.timeline-item:nth-child(4) { animation-delay: 0.4s; }
-.timeline-item:nth-child(5) { animation-delay: 0.5s; }
-
-/* Print Styles */
-@media print {
-    .page-header,
-    .header-actions,
-    .btn {
-        display: none;
-    }
-    
-    .horas-container {
-        padding: 0;
-    }
-    
-    .timeline-card {
-        break-inside: avoid;
+    .metric-item {
+        flex-direction: column;
+        text-align: center;
+        gap: 0.5rem;
     }
 }
 </style>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Animación del progreso circular
-    const progressCircle = document.querySelector('.progress-circle-large');
-    if (progressCircle) {
-        const percentage = parseInt(progressCircle.style.getPropertyValue('--progress'));
+    // Update current time
+    function updateTime() {
+        const now = new Date();
+        const timeElement = document.getElementById('currentTime');
+        if (timeElement) {
+            timeElement.textContent = now.toLocaleTimeString('es-MX', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            });
+        }
+    }
+    
+    updateTime();
+    setInterval(updateTime, 60000);
+    
+    // Animate progress circles
+    const progressElements = document.querySelectorAll('.circular-progress-bg');
+    progressElements.forEach(progressElement => {
+        const percentage = parseInt(progressElement.style.getPropertyValue('--progress'));
         
-        // Animar desde 0
         let current = 0;
-        const increment = percentage / 80;
+        const increment = percentage / 60;
         
         function animateProgress() {
             if (current < percentage) {
                 current += increment;
-                progressCircle.style.setProperty('--progress', Math.min(current, percentage));
+                progressElement.style.setProperty('--progress', Math.min(current, percentage));
                 requestAnimationFrame(animateProgress);
             }
         }
         
         setTimeout(() => {
-            progressCircle.style.setProperty('--progress', 0);
+            progressElement.style.setProperty('--progress', 0);
             animateProgress();
-        }, 300);
-    }
+        }, 500);
+    });
     
-    // Smooth scroll para timeline items
+    // Add hover effects to timeline items
     const timelineItems = document.querySelectorAll('.timeline-item');
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                entry.target.style.opacity = '1';
-                entry.target.style.transform = 'translateX(0)';
-            }
-        });
-    }, {
-        threshold: 0.1
-    });
-    
     timelineItems.forEach(item => {
-        item.style.opacity = '0';
-        item.style.transform = 'translateX(-20px)';
-        item.style.transition = 'opacity 0.6s ease-out, transform 0.6s ease-out';
-        observer.observe(item);
+        item.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateX(5px)';
+        });
+        
+        item.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateX(0)';
+        });
     });
     
-    console.log('✅ Módulo de horas inicializado correctamente');
+    console.log('✅ Página de horas actualizada con diseño moderno');
 });
 </script>
 
